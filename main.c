@@ -10,6 +10,14 @@
 
 bool debugView = false;
 
+// Ingame statistics
+int playerScore = 0;
+double scoreMultiplier = 1.0;
+int playtime = 0;
+int lives = 0;
+
+const int BASE_BRICK_HIT_SCORE = 50;
+
 //? NOTE: all speeds are in units pixels per second
 // Ball
 typedef struct Ball {
@@ -71,6 +79,8 @@ void checkBallNBrickCollisions();
 
 void bounceBallOnWalls();
 void bounceBallOnPaddle();
+
+void increaseScore(int change);
 
 // Draws
 void drawLoop();
@@ -293,7 +303,19 @@ void checkBallNBrickCollisions() {
             ball.speed.x *= -1;
             ball.pos.x = bricks[i].rect.x + bricks[i].rect.width + ball.radius + 2;
         }
+
+        //? NOTE: change this to account for ball velocity later
+        if (bricks[i].type > 0) {
+            increaseScore(BASE_BRICK_HIT_SCORE);
+
+            // degrade brick
+            bricks[i].type--;
+        }
     }
+}
+
+void increaseScore(int change) {
+    playerScore += change * scoreMultiplier;
 }
 
 // Contains all draw calls; func called inside game loop
@@ -345,7 +367,19 @@ void drawDebugView() {
     DrawCircleLinesV(ball.pos, ball.radius + 5, RED);
     DrawRectangleLinesEx((Rectangle) {paddle.rect.x - 2, paddle.rect.y - 2, paddle.rect.width + 4, paddle.rect.height + 4}, 5, RED);
 
-    char fpsText[50] = {'\0'};
+    char fpsText[20] = {'\0'};
     sprintf(fpsText, "FPS: %d", GetFPS());
     DrawText(fpsText, 10, 10, 15, RAYWHITE);
+
+    char scoreText[20] = {'\0'};
+    sprintf(scoreText, "Score: %d", playerScore);
+    DrawText(scoreText, 10, 30, 15, RAYWHITE);
+
+    char playTimeText[20] = {'\0'};
+    sprintf(playTimeText, "PlayTime: %d", playtime);
+    DrawText(playTimeText, 10, 50, 15, RAYWHITE);
+
+    char livesText[20] = {'\0'};
+    sprintf(livesText, "Lives: %d", lives);
+    DrawText(livesText, 10, 70, 15, RAYWHITE);
 }
