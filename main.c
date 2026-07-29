@@ -19,7 +19,7 @@ typedef struct Ball {
 } Ball;
 
 Ball ball;
-const Vector2 INITIAL_BALL_SPEED = (Vector2) { 200, -180 };
+const Vector2 INITIAL_BALL_SPEED = (Vector2) { 300.0, -180.0 / 200 * 300 };
 const double BASE_BALL_RADIUS = 7;
 
 bool lockBallToPaddle = true;   // makes ball stick to paddle, until player presses space
@@ -31,11 +31,27 @@ typedef struct Paddle {
 } Paddle;
 
 Paddle paddle;
-const int BASE_PADDLE_WIDTH = 75;
-const int BASE_PADDLE_HEIGHT = 12;
+const int BASE_PADDLE_WIDTH = 74;
+const int BASE_PADDLE_HEIGHT = 15;
 const Vector2 PADDLE_SPEED = (Vector2) { 10, 0 };   //* unit: pixels per key input
 const int SPACE_BELOW_PADDLE = 5;                   // pixels below paddle
 
+// Bricks
+#define MAX_NUMBER_OF_BRICKS 1000
+const float BRICK_WIDTH = 60;
+const float BRICK_HEIGHT = 20;
+
+// values set based on map input
+int numBricks = 5;
+int brickRows = 1;
+int brickCols = 5;
+
+typedef struct Brick {
+    Rectangle rect;
+    int type;
+} Brick;
+
+Brick bricks[MAX_NUMBER_OF_BRICKS];
 
 /* Function Prototypes */
 void initializeGame();
@@ -56,6 +72,7 @@ void bounceBallOnPaddle();
 void drawLoop();
 void drawBall();
 void drawPaddle();
+void drawBricks();
 void drawDebugView();
 
 int main(void) {
@@ -84,6 +101,38 @@ int main(void) {
 }
 
 void initializeGame() {
+    //** test bricks go here
+    bricks[0] = (Brick) {
+        (Rectangle) {
+            100, 100, BRICK_WIDTH, BRICK_HEIGHT
+        },
+        1
+    };
+    bricks[1] = (Brick) {
+        (Rectangle) {
+            300, 100, BRICK_WIDTH, BRICK_HEIGHT
+        },
+        2
+    };
+    bricks[2] = (Brick) {
+        (Rectangle) {
+            200, 100, BRICK_WIDTH, BRICK_HEIGHT
+        },
+        3
+    };
+    bricks[3] = (Brick) {
+        (Rectangle) {
+            400, 100, BRICK_WIDTH, BRICK_HEIGHT
+        },
+        0
+    };
+    bricks[4] = (Brick) {
+        (Rectangle) {
+            500, 100, BRICK_WIDTH, BRICK_HEIGHT
+        },
+        -1
+    };
+
     resetPaddle();
     resetBall();
 }
@@ -180,6 +229,7 @@ void updatePaddle() {
 void drawLoop() {
     drawDebugView();
     drawPaddle();
+    drawBricks();
     drawBall();
 }
 
@@ -189,6 +239,27 @@ void drawBall() {
 
 void drawPaddle() {
     DrawRectangleRec(paddle.rect, RAYWHITE);
+}
+
+// Draw bricks at positions based on type
+void drawBricks() {
+    for (int i = 0; i < numBricks; i++) {
+        // pick color
+        Color brickColor = (Color) {0, 0, 0, 0};
+        if (bricks[i].type == 0)
+            continue;
+        else if (bricks[i].type == 1)
+            brickColor = BLUE;
+        else if (bricks[i].type == 2)
+            brickColor = YELLOW;
+        else if (bricks[i].type == 3)
+            brickColor = RED;
+        else if (bricks[i].type == -1)
+            brickColor = BROWN;
+
+        // draw brick
+        DrawRectangleRec(bricks[i].rect, brickColor);
+    }
 }
 
 void manageDebugView() {
