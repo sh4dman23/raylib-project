@@ -8,24 +8,24 @@
 /* Function Prototypes */
 void drawLoop();
 
-int main(void) {
+int main(void)
+{
     InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, GAME_WINDOW_TITLE);
     SetTargetFPS(60);
 
-    while (!WindowShouldClose()) {
+    while (!WindowShouldClose())
+    {
         BeginDrawing();
         ClearBackground(BLACK);
-
         drawLoop();
-
         EndDrawing();
     }
-
     CloseWindow();
     return 0;
 }
 
 // Contains all draw calls; func called inside game loop
-void drawLoop() {
+void drawLoop()
+{
     DrawCircle(WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2, 10.0, WHITE);
 }
