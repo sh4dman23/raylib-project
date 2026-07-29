@@ -20,7 +20,7 @@ typedef struct Ball {
 
 Ball ball;
 const Vector2 INITIAL_BALL_SPEED = (Vector2) { 300.0, -180.0 / 200 * 300 };
-const double BASE_BALL_RADIUS = 7;
+const double BASE_BALL_RADIUS = 7.0;
 
 bool lockBallToPaddle = true;   // makes ball stick to paddle, until player presses space
 
@@ -55,6 +55,7 @@ Brick bricks[MAX_NUMBER_OF_BRICKS];
 
 /* Function Prototypes */
 void initializeGame();
+void initializeMap();
 
 // Main game logic
 void manageDebugView();
@@ -64,6 +65,9 @@ void resetPaddle();
 
 void updateBall();
 void updatePaddle();
+
+void checkAllCollisions();
+void checkBallNBrickCollisions();
 
 void bounceBallOnWalls();
 void bounceBallOnPaddle();
@@ -89,6 +93,9 @@ int main(void) {
         updateBall();
         updatePaddle();
 
+        // collisions
+        checkAllCollisions();
+
         // draws
         BeginDrawing();
         ClearBackground(BLACK);
@@ -101,6 +108,12 @@ int main(void) {
 }
 
 void initializeGame() {
+    initializeMap();
+    resetPaddle();
+    resetBall();
+}
+
+void initializeMap() {
     //** test bricks go here
     bricks[0] = (Brick) {
         (Rectangle) {
@@ -132,9 +145,6 @@ void initializeGame() {
         },
         -1
     };
-
-    resetPaddle();
-    resetBall();
 }
 
 // Reset ball to starting position
@@ -158,12 +168,24 @@ void resetPaddle() {
 
 // Update ball position based on collitions and stuff
 void updateBall() {
+    // ball locked to paddle position
     if (lockBallToPaddle) {
         ball.pos = (Vector2) { paddle.rect.x + paddle.rect.width / 2, paddle.rect.y - ball.radius };
     }
     else {
         const double dt = GetFrameTime();
-        ball.pos = Vector2Add(ball.pos, Vector2Scale(ball.speed, dt));
+        const Vector2 initialBallPos = ball.pos;
+        Vector2 displacement = Vector2Scale(ball.speed, dt);
+
+        // move ball in incremental amounts (minimum 1 times) and check for collisions (emulate spherecast)
+        // this is required if the ball is moving too fast (like if displacement > brick height and similar)
+        for (int i = 0; i < ceil(Vector2Length(displacement) / (2 * ball.radius)) || i < 1; i++) {
+            ball.pos = Vector2Add(ball.pos, Vector2Scale(Vector2Normalize(displacement), 2 * ball.radius));
+            checkBallNBrickCollisions();
+            bounceBallOnPaddle();
+        }
+        // set to final position (in case of inaccuracies)
+        ball.pos = Vector2Add(initialBallPos, displacement);
 
         bounceBallOnWalls();
         bounceBallOnPaddle();
@@ -222,6 +244,55 @@ void updatePaddle() {
     }
     else if (paddle.rect.x + paddle.rect.width > GetScreenWidth()) {
         paddle.rect.x = GetScreenWidth() - paddle.rect.width;
+    }
+}
+
+void checkAllCollisions() {
+    checkBallNBrickCollisions();
+}
+
+// Check collision between ball and brick
+void checkBallNBrickCollisions() {
+    for (int i = 0; i < numBricks; i++) {
+        // no collisions for empty bricks
+        if (bricks[i].type == 0)
+            continue;
+
+        if (!CheckCollisionCircleRec(ball.pos, ball.radius, bricks[i].rect))
+            continue;
+
+        // ball above brick
+        if (ball.pos.y <= bricks[i].rect.y
+            && ball.pos.x - ball.radius < bricks[i].rect.x + bricks[i].rect.width
+            && ball.pos.x + ball.radius > bricks[i].rect.x
+        ) {
+            ball.speed.y *= -1;
+            ball.pos.y = bricks[i].rect.y - ball.radius - 2;
+        }
+        // ball below brick
+        else if (ball.pos.y >= bricks[i].rect.y + bricks[i].rect.height
+            && ball.pos.x - ball.radius < bricks[i].rect.x + bricks[i].rect.width
+            && ball.pos.x + ball.radius > bricks[i].rect.x
+        ) {
+            ball.speed.y *= -1;
+            ball.pos.y = bricks[i].rect.y + bricks[i].rect.height + ball.radius + 2;
+        }
+        // ball to the left of brick
+        else if (ball.pos.x <= bricks[i].rect.x
+            && ball.pos.y - ball.radius < bricks[i].rect.y + bricks[i].rect.height
+            && ball.pos.y + ball.radius > bricks[i].rect.y
+        ) {
+            ball.speed.x *= -1;
+            ball.pos.x = bricks[i].rect.x - ball.radius - 2;
+        }
+        // ball to the right of brick
+        else if (ball.pos.x >= bricks[i].rect.x + bricks[i].rect.width
+            && ball.pos.y - ball.radius < bricks[i].rect.y + bricks[i].rect.height
+            && ball.pos.y + ball.radius > bricks[i].rect.y
+        ) {
+            ball.speed.x *= -1;
+            ball.pos.x = bricks[i].rect.x + bricks[i].rect.width + ball.radius + 2;
+        }
     }
 }
 
