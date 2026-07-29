@@ -1,13 +1,16 @@
 #include "raylib.h"
 #include "raymath.h"
+#include <stdio.h>
+#include <string.h>
 
 /* Globals and Constants */
 #define WINDOW_WIDTH 1280
 #define WINDOW_HEIGHT 720
 #define GAME_WINDOW_TITLE "DXBall"
 
-//? all speeds are in units pixels per second
+bool debugView = false;
 
+//? NOTE: all speeds are in units pixels per second
 // Ball
 typedef struct Ball {
     Vector2 pos;
@@ -22,8 +25,7 @@ const double BASE_BALL_RADIUS = 7;
 bool lockBallToPaddle = true;   // makes ball stick to paddle, until player presses space
 
 // Paddle
-typedef struct Paddle
-{
+typedef struct Paddle {
     Rectangle rect; // posx, posy, width, height
     Vector2 speed;
 } Paddle;
@@ -39,6 +41,8 @@ const int SPACE_BELOW_PADDLE = 5;                   // pixels below paddle
 void initializeGame();
 
 // Main game logic
+void manageDebugView();
+
 void resetBall();
 void resetPaddle();
 
@@ -52,6 +56,7 @@ void bounceBallOnPaddle();
 void drawLoop();
 void drawBall();
 void drawPaddle();
+void drawDebugView();
 
 int main(void) {
     InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, GAME_WINDOW_TITLE);
@@ -61,6 +66,8 @@ int main(void) {
     initializeGame();
 
     while (!WindowShouldClose()) {
+        manageDebugView();
+
         // updates
         updateBall();
         updatePaddle();
@@ -171,8 +178,9 @@ void updatePaddle() {
 
 // Contains all draw calls; func called inside game loop
 void drawLoop() {
-    drawBall();
+    drawDebugView();
     drawPaddle();
+    drawBall();
 }
 
 void drawBall() {
@@ -181,4 +189,21 @@ void drawBall() {
 
 void drawPaddle() {
     DrawRectangleRec(paddle.rect, RAYWHITE);
+}
+
+void manageDebugView() {
+    if (IsKeyPressed(KEY_TAB)) {
+        debugView = !debugView;
+    }
+}
+
+void drawDebugView() {
+    if (!debugView)
+        return;
+    DrawCircleLinesV(ball.pos, ball.radius + 5, RED);
+    DrawRectangleLinesEx((Rectangle) {paddle.rect.x - 2, paddle.rect.y - 2, paddle.rect.width + 4, paddle.rect.height + 4}, 5, RED);
+
+    char fpsText[50] = {'\0'};
+    sprintf(fpsText, "FPS: %d", GetFPS());
+    DrawText(fpsText, 10, 10, 15, RAYWHITE);
 }
