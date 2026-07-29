@@ -19,6 +19,8 @@ Ball ball;
 const Vector2 INITIAL_BALL_SPEED = (Vector2) { 200, -180 };
 const double BASE_BALL_RADIUS = 7;
 
+bool lockBallToPaddle = true;   // makes ball stick to paddle, until player presses space
+
 // Paddle
 typedef struct Paddle
 {
@@ -75,16 +77,19 @@ int main(void) {
 }
 
 void initializeGame() {
-    resetBall();
     resetPaddle();
+    resetBall();
 }
 
+// Reset ball to starting position
 void resetBall() {
-    ball.pos = (Vector2) { GetScreenWidth() / 2, GetScreenHeight() / 2 };
+    lockBallToPaddle = true;
+    ball.pos = (Vector2) { paddle.rect.x + paddle.rect.width / 2, paddle.rect.y - ball.radius };
     ball.speed = INITIAL_BALL_SPEED;
     ball.radius = BASE_BALL_RADIUS;
 }
 
+// Reset paddle to starting position
 void resetPaddle() {
     paddle.rect = (Rectangle) {
         (GetScreenWidth() - BASE_PADDLE_WIDTH) / 2,
@@ -95,14 +100,21 @@ void resetPaddle() {
     paddle.speed = PADDLE_SPEED;
 }
 
+// Update ball position based on collitions and stuff
 void updateBall() {
-    const double dt = GetFrameTime();
-    ball.pos = Vector2Add(ball.pos, Vector2Scale(ball.speed, dt));
+    if (lockBallToPaddle) {
+        ball.pos = (Vector2) { paddle.rect.x + paddle.rect.width / 2, paddle.rect.y - ball.radius };
+    }
+    else {
+        const double dt = GetFrameTime();
+        ball.pos = Vector2Add(ball.pos, Vector2Scale(ball.speed, dt));
 
-    bounceBallOnWalls();
-    bounceBallOnPaddle();
+        bounceBallOnWalls();
+        bounceBallOnPaddle();
+    }
 }
 
+// Reflect ball off of the walls and ceiling, but cause death upon falling below
 void bounceBallOnWalls() {
     // ball bounces off walls
     if (ball.pos.x - ball.radius < 0 || ball.pos.x + ball.radius > GetScreenWidth()) {
@@ -116,13 +128,18 @@ void bounceBallOnWalls() {
     // ball bounces off ceiling and floor (for now)
     if (ball.pos.y - ball.radius < 0 || ball.pos.y + ball.radius > GetScreenHeight()) {
         ball.speed.y *= -1;
-        if (ball.pos.y - ball.radius < 0)
+        if (ball.pos.y - ball.radius < 0) {
             ball.pos.y = ball.radius;
-        else
-            ball.pos.y = GetScreenHeight() - ball.radius;
+        }
+        else {
+            resetPaddle();
+            resetBall();
+            //? handle death logic here
+        }
     }
 }
 
+// Reflect ball off of the paddle
 void bounceBallOnPaddle() {
     if (ball.pos.x + ball.radius >= paddle.rect.x && ball.pos.x - ball.radius <= paddle.rect.x + paddle.rect.width &&
         ball.pos.y + ball.radius > paddle.rect.y) {
@@ -131,8 +148,13 @@ void bounceBallOnPaddle() {
     }
 }
 
+// Update paddle position based on player input
 void updatePaddle() {
-    // handle inputs
+    // unlock ball from paddle
+    if (IsKeyDown(KEY_SPACE))
+        lockBallToPaddle = false;
+
+    // move paddle sideways
     if (IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_A))
         paddle.rect.x -= paddle.speed.x;
     else if (IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D))
