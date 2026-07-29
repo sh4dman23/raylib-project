@@ -18,7 +18,8 @@ int lives = 0;
 
 const int BASE_BRICK_HIT_SCORE = 50;
 
-//? NOTE: all speeds are in units pixels per second
+//? NOTE: most speeds are in units PIXELS PER SECOND
+
 // Ball
 typedef struct Ball {
     Vector2 pos;
@@ -49,10 +50,15 @@ const int SPACE_BELOW_PADDLE = 5;                   // pixels below paddle
 const float BRICK_WIDTH = 60;
 const float BRICK_HEIGHT = 20;
 
-// values set based on map input
-int numBricks = 5;
-int brickRows = 1;
-int brickCols = 5;
+// paddings for map
+const double PADDING_ABOVE_MAP = 100;
+const double PADDING_BELOW_MAP = 50;
+const double PADDING_ON_MAP_SIDES = ((WINDOW_WIDTH) % (int) BRICK_WIDTH + (int)BRICK_WIDTH) / 2;
+
+// values based on dimensions
+int maxBrickRows = (WINDOW_HEIGHT - PADDING_ABOVE_MAP - PADDING_BELOW_MAP) / BRICK_HEIGHT;
+int maxBrickCols = (WINDOW_WIDTH - PADDING_ON_MAP_SIDES * 2) / BRICK_WIDTH;
+int numBricks;
 
 typedef struct Brick {
     Rectangle rect;
@@ -61,12 +67,19 @@ typedef struct Brick {
 
 Brick bricks[MAX_NUMBER_OF_BRICKS];
 
+// Map Related
+#define MAP_FILE_PATH "./map.txt"
+
 /* Function Prototypes */
 void initializeGame();
 void initializeMap();
 
 // Main game logic
 void manageDebugView();
+
+void setEmptyMap();
+void readMapFromFile(FILE *mapFile);
+void writeMapToFile(FILE* outputFile);
 
 void resetBall();
 void resetPaddle();
@@ -118,43 +131,59 @@ int main(void) {
 }
 
 void initializeGame() {
+    numBricks = maxBrickCols * maxBrickRows;
+
     initializeMap();
     resetPaddle();
     resetBall();
 }
 
 void initializeMap() {
-    //** test bricks go here
-    bricks[0] = (Brick) {
-        (Rectangle) {
-            100, 100, BRICK_WIDTH, BRICK_HEIGHT
-        },
-        1
-    };
-    bricks[1] = (Brick) {
-        (Rectangle) {
-            300, 100, BRICK_WIDTH, BRICK_HEIGHT
-        },
-        2
-    };
-    bricks[2] = (Brick) {
-        (Rectangle) {
-            200, 100, BRICK_WIDTH, BRICK_HEIGHT
-        },
-        3
-    };
-    bricks[3] = (Brick) {
-        (Rectangle) {
-            400, 100, BRICK_WIDTH, BRICK_HEIGHT
-        },
-        0
-    };
-    bricks[4] = (Brick) {
-        (Rectangle) {
-            500, 100, BRICK_WIDTH, BRICK_HEIGHT
-        },
-        -1
-    };
+    setEmptyMap();
+
+    FILE *mapInputFile = fopen(MAP_FILE_PATH, "r");
+    readMapFromFile(mapInputFile);
+}
+
+// Set all bricks in map to empty bricks (type 0)
+void setEmptyMap() {
+    double px = PADDING_ON_MAP_SIDES;
+    double py = PADDING_ABOVE_MAP;
+
+    for (int i = 0; i < maxBrickRows; i++) {
+        for (int j = 0; j < maxBrickCols; j++) {
+            bricks[i * maxBrickCols + j] = (Brick) {
+                (Rectangle) {
+                    px,
+                    py,
+                    BRICK_WIDTH,
+                    BRICK_HEIGHT
+                },
+                0
+            };
+
+            px += BRICK_WIDTH;
+        }
+
+        px = PADDING_ON_MAP_SIDES;
+        py += BRICK_HEIGHT;
+    }
+}
+
+void readMapFromFile(FILE *mapFile) {
+    setEmptyMap();
+
+    int brickRows = 0, brickCols = 0;
+    fscanf(mapFile, "%d %d", &brickRows, &brickCols);
+
+    for (int i = 0; i < brickRows; i++) {
+        for (int j = 0; j < brickCols; j++) {
+            int brickType = 0;
+            fscanf(mapFile, "%d", &brickType);
+
+            bricks[i * maxBrickCols + j].type = brickType;
+        }
+    }
 }
 
 // Reset ball to starting position
@@ -230,9 +259,12 @@ void bounceBallOnWalls() {
 // Reflect ball off of the paddle
 void bounceBallOnPaddle() {
     if (ball.pos.x + ball.radius >= paddle.rect.x && ball.pos.x - ball.radius <= paddle.rect.x + paddle.rect.width &&
-        ball.pos.y + ball.radius > paddle.rect.y) {
+        ball.pos.y + ball.radius >= paddle.rect.y) {
         ball.speed.y *= -1;
         ball.pos.y = paddle.rect.y - (ball.radius + 2);
+    }
+    else if (CheckCollisionCircleRec(ball.pos, ball.radius, paddle.rect)) {
+        ball.speed.y *= -1;
     }
 }
 
@@ -320,10 +352,10 @@ void increaseScore(int change) {
 
 // Contains all draw calls; func called inside game loop
 void drawLoop() {
-    drawDebugView();
     drawPaddle();
     drawBricks();
     drawBall();
+    drawDebugView();
 }
 
 void drawBall() {
@@ -355,18 +387,22 @@ void drawBricks() {
     }
 }
 
+// Toggle debug view
 void manageDebugView() {
     if (IsKeyPressed(KEY_TAB)) {
         debugView = !debugView;
     }
 }
 
+// Draw debug view
 void drawDebugView() {
     if (!debugView)
         return;
-    DrawCircleLinesV(ball.pos, ball.radius + 5, RED);
+    // outlines
+    DrawCircleLinesV(ball.pos, ball.radius + 1, RED);
     DrawRectangleLinesEx((Rectangle) {paddle.rect.x - 2, paddle.rect.y - 2, paddle.rect.width + 4, paddle.rect.height + 4}, 5, RED);
 
+    // stats
     char fpsText[20] = {'\0'};
     sprintf(fpsText, "FPS: %d", GetFPS());
     DrawText(fpsText, 10, 10, 15, RAYWHITE);
@@ -382,4 +418,11 @@ void drawDebugView() {
     char livesText[20] = {'\0'};
     sprintf(livesText, "Lives: %d", lives);
     DrawText(livesText, 10, 70, 15, RAYWHITE);
+
+    // map area
+    DrawRectangle(PADDING_ON_MAP_SIDES, PADDING_ABOVE_MAP, GetScreenWidth() - PADDING_ON_MAP_SIDES * 2, GetScreenHeight() - PADDING_ABOVE_MAP - PADDING_BELOW_MAP, (Color) {255, 0, 0, 50});
+
+    // all blocks
+    for (int i = 0; i < numBricks; i++)
+        DrawRectangleLinesEx(bricks[i].rect, 1, RAYWHITE);
 }
