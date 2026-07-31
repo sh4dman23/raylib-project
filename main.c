@@ -170,6 +170,7 @@ void setEmptyMap() {
     }
 }
 
+// Read map from file to memory
 void readMapFromFile(FILE *mapFile) {
     setEmptyMap();
 
@@ -183,6 +184,17 @@ void readMapFromFile(FILE *mapFile) {
 
             bricks[i * maxBrickCols + j].type = brickType;
         }
+    }
+}
+
+// Save map from memory to file
+void writeMapToFile(FILE* outputFile) {
+    fprintf(outputFile, "%d %d\n", maxBrickRows, maxBrickCols);
+    for (int i = 0; i < maxBrickRows; i++) {
+        for (int j = 0; j < maxBrickCols; j++) {
+            fprintf(outputFile, "%d ", bricks[i * maxBrickCols + j].type);
+        }
+        fprintf(outputFile, "\n");
     }
 }
 
@@ -220,8 +232,7 @@ void updateBall() {
         // this is required if the ball is moving too fast (like if displacement > brick height and similar)
         for (int i = 0; i < ceil(Vector2Length(displacement) / (2 * ball.radius)) || i < 1; i++) {
             ball.pos = Vector2Add(ball.pos, Vector2Scale(Vector2Normalize(displacement), 2 * ball.radius));
-            checkBallNBrickCollisions();
-            bounceBallOnPaddle();
+            checkBallNBrickCollisions(); 
         }
         // set to final position (in case of inaccuracies)
         ball.pos = Vector2Add(initialBallPos, displacement);
@@ -261,7 +272,7 @@ void bounceBallOnPaddle() {
     if (ball.pos.x + ball.radius >= paddle.rect.x && ball.pos.x - ball.radius <= paddle.rect.x + paddle.rect.width &&
         ball.pos.y + ball.radius >= paddle.rect.y) {
         ball.speed.y *= -1;
-        ball.pos.y = paddle.rect.y - (ball.radius + 2);
+        ball.pos.y = paddle.rect.y - (ball.radius + 1);
     }
     else if (CheckCollisionCircleRec(ball.pos, ball.radius, paddle.rect)) {
         ball.speed.y *= -1;
@@ -309,7 +320,7 @@ void checkBallNBrickCollisions() {
             && ball.pos.x + ball.radius > bricks[i].rect.x
         ) {
             ball.speed.y *= -1;
-            ball.pos.y = bricks[i].rect.y - ball.radius - 2;
+            ball.pos.y = bricks[i].rect.y - ball.radius - 1;
         }
         // ball below brick
         else if (ball.pos.y >= bricks[i].rect.y + bricks[i].rect.height
@@ -317,7 +328,7 @@ void checkBallNBrickCollisions() {
             && ball.pos.x + ball.radius > bricks[i].rect.x
         ) {
             ball.speed.y *= -1;
-            ball.pos.y = bricks[i].rect.y + bricks[i].rect.height + ball.radius + 2;
+            ball.pos.y = bricks[i].rect.y + bricks[i].rect.height + ball.radius + 1;
         }
         // ball to the left of brick
         else if (ball.pos.x <= bricks[i].rect.x
@@ -325,7 +336,7 @@ void checkBallNBrickCollisions() {
             && ball.pos.y + ball.radius > bricks[i].rect.y
         ) {
             ball.speed.x *= -1;
-            ball.pos.x = bricks[i].rect.x - ball.radius - 2;
+            ball.pos.x = bricks[i].rect.x - ball.radius - 1;
         }
         // ball to the right of brick
         else if (ball.pos.x >= bricks[i].rect.x + bricks[i].rect.width
@@ -333,7 +344,7 @@ void checkBallNBrickCollisions() {
             && ball.pos.y + ball.radius > bricks[i].rect.y
         ) {
             ball.speed.x *= -1;
-            ball.pos.x = bricks[i].rect.x + bricks[i].rect.width + ball.radius + 2;
+            ball.pos.x = bricks[i].rect.x + bricks[i].rect.width + ball.radius + 1;
         }
 
         //? NOTE: change this to account for ball velocity later
@@ -422,7 +433,7 @@ void drawDebugView() {
     // map area
     DrawRectangle(PADDING_ON_MAP_SIDES, PADDING_ABOVE_MAP, GetScreenWidth() - PADDING_ON_MAP_SIDES * 2, GetScreenHeight() - PADDING_ABOVE_MAP - PADDING_BELOW_MAP, (Color) {255, 0, 0, 50});
 
-    // all blocks
+    // brick outlines
     for (int i = 0; i < numBricks; i++)
         DrawRectangleLinesEx(bricks[i].rect, 1, RAYWHITE);
 }
