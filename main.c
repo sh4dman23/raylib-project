@@ -25,6 +25,7 @@ int playerScore = 0;
 double scoreMultiplier = 1.0;
 int playtime = 0;
 int lives = 0;
+const int STARTING_LIVES = 3;
 
 const int BASE_BRICK_HIT_SCORE = 50;
 
@@ -93,12 +94,9 @@ void manageDebugView();
 void manageGameStates();
 void switchGameState(int state);
 
-// Map related
-void setEmptyMap();
-void readMapFromFile(FILE *mapFile);
-void writeMapToFile(FILE* outputFile);
+// Core Game Logic
+void setNewGame();
 
-// Main game logic
 void resetBall();
 void resetPaddle();
 
@@ -106,17 +104,25 @@ void updateBall();
 void updatePaddle();
 
 void checkAllCollisions();
-void checkBallNBrickCollisions();
+bool checkBallNBrickCollisions();
 
 void bounceBallOnWalls();
 void bounceBallOnPaddle();
 
+void resetStats();
 void increaseScore(int change);
+
+double distancePointLine(Vector2 point, Vector2 lPoint1, Vector2 lPoint2);
+
+// Game Map
+void setEmptyMap();
+void readMapFromFile(FILE *mapFile);
+void writeMapToFile(FILE* outputFile);
 
 // Map Editor
 void checkMapEdit();
 
-// Draws
+// Draw Functions
 void drawLoop();
 void drawBall();
 void drawPaddle();
@@ -141,7 +147,7 @@ int main(void) {
             updatePaddle();
 
             // collisions
-            checkAllCollisions();
+            // checkAllCollisions();
         }
         else if (gameState == 3) {
             checkMapEdit();
@@ -176,20 +182,38 @@ void manageGameStates() {
     }
 }
 
+// Switches game states
 void switchGameState(int state) {
     if (gameState == 1 & state != 1) {
         debugView = false;
         lockBallToPaddle = true;
     }
+
+    if (gameState == 1 && state == 3) {
+        setNewGame();
+    }
+
     gameState = state;
 }
 
 void initializeGame() {
+    setNewGame();
+}
+
+void setNewGame() {
     numBricks = maxBrickCols * maxBrickRows;
 
     initializeMap();
     resetPaddle();
     resetBall();
+    resetStats();
+}
+
+void resetStats() {
+    playerScore = 0;
+    lives = STARTING_LIVES;
+    playtime = 0;
+    scoreMultiplier = 1.0;
 }
 
 void initializeMap() {
@@ -330,14 +354,21 @@ void updateBall() {
         const Vector2 initialBallPos = ball.pos;
         Vector2 displacement = Vector2Scale(ball.speed, dt);
 
+        bool collision = false;
+
         // move ball in incremental amounts (minimum 1 times) and check for collisions (emulate spherecast)
         // this is required if the ball is moving too fast (like if displacement > brick height and similar)
-        for (int i = 0; i < ceil(Vector2Length(displacement) / (2 * ball.radius)) || i < 1; i++) {
-            ball.pos = Vector2Add(ball.pos, Vector2Scale(Vector2Normalize(displacement), 2 * ball.radius));
-            checkBallNBrickCollisions();
+        for (int i = 0; i < ceil(Vector2Length(displacement) / (BRICK_HEIGHT / 2)) || i < 1; i++) {
+            ball.pos = Vector2Add(ball.pos, Vector2Scale(Vector2Normalize(displacement), BRICK_HEIGHT / 2));
+            if (checkBallNBrickCollisions()) {
+                collision = true;
+                break;
+            }
         }
+
         // set to final position (in case of inaccuracies)
-        ball.pos = Vector2Add(initialBallPos, displacement);
+        if (!collision)
+            ball.pos = Vector2Add(initialBallPos, displacement);
 
         bounceBallOnWalls();
         bounceBallOnPaddle();
@@ -406,8 +437,10 @@ void checkAllCollisions() {
     checkBallNBrickCollisions();
 }
 
-// Check collision between ball and brick
-void checkBallNBrickCollisions() {
+// Check collision between ball and brick and return brick index
+bool checkBallNBrickCollisions() {
+    bool collision = false;
+
     for (int i = 0; i < numBricks; i++) {
         // no collisions for empty bricks
         if (bricks[i].type == 0)
@@ -416,37 +449,32 @@ void checkBallNBrickCollisions() {
         if (!CheckCollisionCircleRec(ball.pos, ball.radius, bricks[i].rect))
             continue;
 
-        // ball above brick
-        if (ball.pos.y <= bricks[i].rect.y
-            && ball.pos.x - ball.radius < bricks[i].rect.x + bricks[i].rect.width
-            && ball.pos.x + ball.radius > bricks[i].rect.x
-        ) {
-            ball.speed.y *= -1;
-            ball.pos.y = bricks[i].rect.y - ball.radius - 1;
-        }
-        // ball below brick
-        else if (ball.pos.y >= bricks[i].rect.y + bricks[i].rect.height
-            && ball.pos.x - ball.radius < bricks[i].rect.x + bricks[i].rect.width
-            && ball.pos.x + ball.radius > bricks[i].rect.x
-        ) {
-            ball.speed.y *= -1;
-            ball.pos.y = bricks[i].rect.y + bricks[i].rect.height + ball.radius + 1;
-        }
+        double bX = bricks[i].rect.x, bY = bricks[i].rect.y;
+
+        Vector2 leftTop = {bX, bY};
+        Vector2 leftBottom = {bX, bY + BRICK_HEIGHT};
+        Vector2 rightTop = {bX + BRICK_WIDTH, bY};
+        Vector2 rightBottom = {bX + BRICK_WIDTH, bY + BRICK_HEIGHT};
+
         // ball to the left of brick
-        else if (ball.pos.x <= bricks[i].rect.x
-            && ball.pos.y - ball.radius < bricks[i].rect.y + bricks[i].rect.height
-            && ball.pos.y + ball.radius > bricks[i].rect.y
-        ) {
+        if (ball.pos.y >= bY && ball.pos.y <= bY + BRICK_HEIGHT && fabs(ball.pos.x - bX) <= ball.radius) {
             ball.speed.x *= -1;
-            ball.pos.x = bricks[i].rect.x - ball.radius - 1;
+            ball.pos.x = bX - ball.radius - 2;
         }
         // ball to the right of brick
-        else if (ball.pos.x >= bricks[i].rect.x + bricks[i].rect.width
-            && ball.pos.y - ball.radius < bricks[i].rect.y + bricks[i].rect.height
-            && ball.pos.y + ball.radius > bricks[i].rect.y
-        ) {
+        else if (ball.pos.y >= bY && ball.pos.y <= bY + BRICK_HEIGHT && fabs(ball.pos.x - (bX + BRICK_WIDTH)) <= ball.radius) {
             ball.speed.x *= -1;
-            ball.pos.x = bricks[i].rect.x + bricks[i].rect.width + ball.radius + 1;
+            ball.pos.x = bX + BRICK_WIDTH + ball.radius + 2;
+        }
+        // ball above brick
+        else if (ball.pos.x >= bX && ball.pos.x <= bX + BRICK_WIDTH && fabs(ball.pos.y - bY) <= ball.radius) {
+            ball.speed.y *= -1;
+            ball.pos.y = bY - ball.radius - 2;
+        }
+        // ball below brick
+        else if (ball.pos.x >= bX && ball.pos.x <= bX + BRICK_WIDTH && fabs(ball.pos.y - (bY + BRICK_HEIGHT)) <= ball.radius) {
+            ball.speed.y *= -1;
+            ball.pos.y = bY + BRICK_HEIGHT + ball.radius + 2;
         }
 
         //? NOTE: change this to account for ball velocity later
@@ -456,11 +484,30 @@ void checkBallNBrickCollisions() {
             // degrade brick
             bricks[i].type--;
         }
+
+        collision = true;
     }
+
+    return collision;
 }
 
 void increaseScore(int change) {
     playerScore += change * scoreMultiplier;
+}
+
+// calculate perpendicular distance between point and a straight line (NOT line segment)
+double distancePointLine(Vector2 point, Vector2 lPoint1, Vector2 lPoint2) {
+    // slope
+    double num = fabs((lPoint2.x - lPoint1.x) * (lPoint1.y - point.y) - (lPoint1.x - point.x) * (lPoint2.y - lPoint1.y));
+    double den = sqrt(pow(lPoint2.x - lPoint1.x, 2) + pow(lPoint2.y - lPoint1.y, 2));
+    double dist = 0;
+
+    // if lPoint1 and lPoint2 are same
+    if (den == 0)
+        dist = sqrt(pow(lPoint2.x - point.x, 2) + pow(lPoint2.y - point.y, 2));
+    else
+        dist = num / den;
+    return dist;
 }
 
 // Contains all draw calls; func called inside game loop
@@ -520,6 +567,17 @@ void manageDebugView() {
     if (IsKeyPressed(KEY_TAB)) {
         debugView = !debugView;
     }
+
+    if (debugView) {
+        if (IsKeyDown(KEY_EQUAL)) {
+            ball.speed.x = ball.speed.x + 10 * (ball.speed.x > 0 ? 1 : -1);
+            ball.speed.y = ball.speed.y + 10 * (ball.speed.y > 0 ? 1 : -1);
+        }
+        else if (IsKeyDown(KEY_MINUS)) {
+            ball.speed.x = ball.speed.x - 10 * (ball.speed.x > 0 ? 1 : -1);
+            ball.speed.y = ball.speed.y - 10 * (ball.speed.y > 0 ? 1 : -1);
+        }
+    }
 }
 
 // Draw debug view
@@ -546,6 +604,10 @@ void drawDebugView() {
     char livesText[20] = {'\0'};
     sprintf(livesText, "Lives: %d", lives);
     DrawText(livesText, 10, 70, 15, RAYWHITE);
+
+    char ballSpeedText[50] = {'\0'};
+    sprintf(ballSpeedText, "SpeedX: %f; SpeedY: %f", ball.speed.x, ball.speed.y);
+    DrawText(ballSpeedText, 10, 90, 15, RAYWHITE);
 
     // map area
     DrawRectangle(PADDING_ON_MAP_SIDES, PADDING_ABOVE_MAP, GetScreenWidth() - PADDING_ON_MAP_SIDES * 2, GetScreenHeight() - PADDING_ABOVE_MAP - PADDING_BELOW_MAP, (Color) {255, 0, 0, 50});
