@@ -466,8 +466,9 @@ bool checkBallNBrickCollisions() {
             ball.speed.x *= -1;
             ball.pos.x = bX + BRICK_WIDTH + ball.radius + 2;
         }
+
         // ball above brick
-        else if (ball.pos.x >= bX && ball.pos.x <= bX + BRICK_WIDTH && fabs(ball.pos.y - bY) <= ball.radius) {
+        if (ball.pos.x >= bX && ball.pos.x <= bX + BRICK_WIDTH && fabs(ball.pos.y - bY) <= ball.radius) {
             ball.speed.y *= -1;
             ball.pos.y = bY - ball.radius - 2;
         }
@@ -606,8 +607,8 @@ void drawDebugView() {
     DrawText(livesText, 10, 70, 15, RAYWHITE);
 
     char ballSpeedText[50] = {'\0'};
-    sprintf(ballSpeedText, "SpeedX: %f; SpeedY: %f", ball.speed.x, ball.speed.y);
-    DrawText(ballSpeedText, 10, 90, 15, RAYWHITE);
+    sprintf(ballSpeedText, "SpeedX: %.2f; SpeedY: %.2f", ball.speed.x, ball.speed.y);
+    DrawText(ballSpeedText, GetScreenWidth() - 250, 10, 15, RAYWHITE);
 
     // map area
     DrawRectangle(PADDING_ON_MAP_SIDES, PADDING_ABOVE_MAP, GetScreenWidth() - PADDING_ON_MAP_SIDES * 2, GetScreenHeight() - PADDING_ABOVE_MAP - PADDING_BELOW_MAP, (Color) {255, 0, 0, 50});
