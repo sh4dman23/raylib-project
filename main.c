@@ -8,7 +8,17 @@
 #define WINDOW_HEIGHT 720
 #define GAME_WINDOW_TITLE "DXBall"
 
+#define max(a, b) ((a) > (b) ? (a) : (b))
+#define min(a, b) ((a) < (b) ? (a) : (b))
+
 bool debugView = false;
+
+// Game States
+// 0 = main menu (unimplemented)
+// 1 = main game
+// 2 = game end (unimplemented)
+// 3 = map editor
+int gameState = 1;
 
 // Ingame statistics
 int playerScore = 0;
@@ -60,10 +70,15 @@ int maxBrickRows = (WINDOW_HEIGHT - PADDING_ABOVE_MAP - PADDING_BELOW_MAP) / BRI
 int maxBrickCols = (WINDOW_WIDTH - PADDING_ON_MAP_SIDES * 2) / BRICK_WIDTH;
 int numBricks;
 
+// brick types = 0 (empty), 1, 2, 3 (standard), -1 (unbreakable)
 typedef struct Brick {
     Rectangle rect;
     int type;
 } Brick;
+
+// required for map editor brick changes
+const int MAX_BRICK_TYPE = 3;
+const int MIN_BRICK_TYPE = -1;
 
 Brick bricks[MAX_NUMBER_OF_BRICKS];
 
@@ -74,13 +89,16 @@ Brick bricks[MAX_NUMBER_OF_BRICKS];
 void initializeGame();
 void initializeMap();
 
-// Main game logic
 void manageDebugView();
+void manageGameStates();
+void switchGameState(int state);
 
+// Map related
 void setEmptyMap();
 void readMapFromFile(FILE *mapFile);
 void writeMapToFile(FILE* outputFile);
 
+// Main game logic
 void resetBall();
 void resetPaddle();
 
@@ -95,11 +113,15 @@ void bounceBallOnPaddle();
 
 void increaseScore(int change);
 
+// Map Editor
+void checkMapEdit();
+
 // Draws
 void drawLoop();
 void drawBall();
 void drawPaddle();
 void drawBricks();
+void drawMapEditor();
 void drawDebugView();
 
 int main(void) {
@@ -112,12 +134,19 @@ int main(void) {
     while (!WindowShouldClose()) {
         manageDebugView();
 
+        manageGameStates();
         // updates
-        updateBall();
-        updatePaddle();
+        if (gameState == 1) {
+            updateBall();
+            updatePaddle();
 
-        // collisions
-        checkAllCollisions();
+            // collisions
+            checkAllCollisions();
+        }
+        else if (gameState == 3) {
+            checkMapEdit();
+        }
+
 
         // draws
         BeginDrawing();
@@ -128,6 +157,31 @@ int main(void) {
 
     CloseWindow();
     return 0;
+}
+
+void manageGameStates() {
+    if (gameState == 0) {
+        // code for main menu ui interactions that change gamestates go here
+    }
+    //! current working method to switch to
+    else if (gameState == 1 && IsKeyPressed(KEY_F2)) {
+        switchGameState(3);
+    }
+    else if (gameState == 3 && IsKeyPressed(KEY_F2)) {
+        // auto save changed map if switched back to main game
+        FILE *mapFile = fopen(MAP_FILE_PATH, "w");
+        writeMapToFile(mapFile);
+        fclose(mapFile);
+        switchGameState(1);
+    }
+}
+
+void switchGameState(int state) {
+    if (gameState == 1 & state != 1) {
+        debugView = false;
+        lockBallToPaddle = true;
+    }
+    gameState = state;
 }
 
 void initializeGame() {
@@ -143,6 +197,7 @@ void initializeMap() {
 
     FILE *mapInputFile = fopen(MAP_FILE_PATH, "r");
     readMapFromFile(mapInputFile);
+    fclose(mapInputFile);
 }
 
 // Set all bricks in map to empty bricks (type 0)
@@ -188,13 +243,60 @@ void readMapFromFile(FILE *mapFile) {
 }
 
 // Save map from memory to file
-void writeMapToFile(FILE* outputFile) {
+void writeMapToFile(FILE *outputFile) {
     fprintf(outputFile, "%d %d\n", maxBrickRows, maxBrickCols);
     for (int i = 0; i < maxBrickRows; i++) {
         for (int j = 0; j < maxBrickCols; j++) {
             fprintf(outputFile, "%d ", bricks[i * maxBrickCols + j].type);
         }
         fprintf(outputFile, "\n");
+    }
+}
+
+// Checks changes to map in map editor
+void checkMapEdit() {
+    // save map
+    if (IsKeyPressed(KEY_ENTER)) {
+        FILE *mapFile = fopen(MAP_FILE_PATH, "w");
+        writeMapToFile(mapFile);
+        fclose(mapFile);
+    }
+    // reset all changes
+    else if (IsKeyPressed(KEY_BACKSPACE)) {
+        FILE *mapFile = fopen(MAP_FILE_PATH, "r");
+        readMapFromFile(mapFile);
+        fclose(mapFile);
+    }
+    // cycle brick type right
+    else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+        Vector2 mousePos = GetMousePosition();
+        for (int i = 0; i < maxBrickCols * maxBrickRows; i++) {
+            if (CheckCollisionPointRec(mousePos, bricks[i].rect)) {
+                bricks[i].type = bricks[i].type + 1;
+                if (bricks[i].type > MAX_BRICK_TYPE)
+                    bricks[i].type = MIN_BRICK_TYPE;
+            }
+        }
+    }
+    // cycle brick type left
+    else if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
+        Vector2 mousePos = GetMousePosition();
+        for (int i = 0; i < maxBrickCols * maxBrickRows; i++) {
+            if (CheckCollisionPointRec(mousePos, bricks[i].rect)) {
+                bricks[i].type = bricks[i].type - 1;
+                if (bricks[i].type < MIN_BRICK_TYPE)
+                    bricks[i].type = MAX_BRICK_TYPE;
+            }
+        }
+    }
+    // set empty brick
+    else if (IsMouseButtonDown(MOUSE_BUTTON_MIDDLE)) {
+        Vector2 mousePos = GetMousePosition();
+        for (int i = 0; i < maxBrickCols * maxBrickRows; i++) {
+            if (CheckCollisionPointRec(mousePos, bricks[i].rect)) {
+                bricks[i].type = 0;
+            }
+        }
     }
 }
 
@@ -232,7 +334,7 @@ void updateBall() {
         // this is required if the ball is moving too fast (like if displacement > brick height and similar)
         for (int i = 0; i < ceil(Vector2Length(displacement) / (2 * ball.radius)) || i < 1; i++) {
             ball.pos = Vector2Add(ball.pos, Vector2Scale(Vector2Normalize(displacement), 2 * ball.radius));
-            checkBallNBrickCollisions(); 
+            checkBallNBrickCollisions();
         }
         // set to final position (in case of inaccuracies)
         ball.pos = Vector2Add(initialBallPos, displacement);
@@ -363,10 +465,15 @@ void increaseScore(int change) {
 
 // Contains all draw calls; func called inside game loop
 void drawLoop() {
-    drawPaddle();
-    drawBricks();
-    drawBall();
-    drawDebugView();
+    if (gameState == 1) {
+        drawPaddle();
+        drawBricks();
+        drawBall();
+        drawDebugView();
+    }
+    else if (gameState == 3) {
+        drawMapEditor();
+    }
 }
 
 void drawBall() {
@@ -398,8 +505,18 @@ void drawBricks() {
     }
 }
 
+// Draw map editor on screen
+void drawMapEditor() {
+    // bricks & outlines
+    for (int i = 0; i < numBricks; i++)
+        DrawRectangleLinesEx(bricks[i].rect, 1, RAYWHITE);
+    drawBricks();
+}
+
 // Toggle debug view
 void manageDebugView() {
+    if (gameState != 1)
+        return;
     if (IsKeyPressed(KEY_TAB)) {
         debugView = !debugView;
     }
