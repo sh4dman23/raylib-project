@@ -143,8 +143,8 @@ int main(void) {
         manageGameStates();
         // updates
         if (gameState == 1) {
-            updateBall();
             updatePaddle();
+            updateBall();
 
             // collisions
             // checkAllCollisions();
@@ -358,8 +358,8 @@ void updateBall() {
 
         // move ball in incremental amounts (minimum 1 times) and check for collisions (emulate spherecast)
         // this is required if the ball is moving too fast (like if displacement > brick height and similar)
-        for (int i = 0; i < ceil(Vector2Length(displacement) / (BRICK_HEIGHT / 2)) || i < 1; i++) {
-            ball.pos = Vector2Add(ball.pos, Vector2Scale(Vector2Normalize(displacement), BRICK_HEIGHT / 2));
+        for (int i = 0, divs = 10; i < divs; i++) {
+            ball.pos = Vector2Add(ball.pos, Vector2Scale(displacement, 1.0 / divs));
             if (checkBallNBrickCollisions()) {
                 collision = true;
                 break;
@@ -440,13 +440,9 @@ void checkAllCollisions() {
 // Check collision between ball and brick and return brick index
 bool checkBallNBrickCollisions() {
     bool collision = false;
-
     for (int i = 0; i < numBricks; i++) {
         // no collisions for empty bricks
-        if (bricks[i].type == 0)
-            continue;
-
-        if (!CheckCollisionCircleRec(ball.pos, ball.radius, bricks[i].rect))
+        if (bricks[i].type == 0 || !CheckCollisionCircleRec(ball.pos, ball.radius, bricks[i].rect))
             continue;
 
         double bX = bricks[i].rect.x, bY = bricks[i].rect.y;
@@ -457,25 +453,57 @@ bool checkBallNBrickCollisions() {
         Vector2 rightBottom = {bX + BRICK_WIDTH, bY + BRICK_HEIGHT};
 
         // ball to the left of brick
-        if (ball.pos.y >= bY && ball.pos.y <= bY + BRICK_HEIGHT && fabs(ball.pos.x - bX) <= ball.radius) {
+        if (ball.pos.y >= bY && ball.pos.y <= bY + BRICK_HEIGHT && distancePointLine(ball.pos, leftTop, leftBottom) <= ball.radius + 0.5) {
+            collision = true;
             ball.speed.x *= -1;
             ball.pos.x = bX - ball.radius - 2;
+
         }
         // ball to the right of brick
-        else if (ball.pos.y >= bY && ball.pos.y <= bY + BRICK_HEIGHT && fabs(ball.pos.x - (bX + BRICK_WIDTH)) <= ball.radius) {
+        else if (ball.pos.y >= bY && ball.pos.y <= bY + BRICK_HEIGHT && distancePointLine(ball.pos, rightTop, rightBottom) <= ball.radius + 0.5) {
+            collision = true;
             ball.speed.x *= -1;
             ball.pos.x = bX + BRICK_WIDTH + ball.radius + 2;
         }
 
         // ball above brick
-        if (ball.pos.x >= bX && ball.pos.x <= bX + BRICK_WIDTH && fabs(ball.pos.y - bY) <= ball.radius) {
+        if (ball.pos.x >= bX && ball.pos.x <= bX + BRICK_WIDTH && distancePointLine(ball.pos, leftTop, rightTop) <= ball.radius + 0.5) {
+            collision = true;
             ball.speed.y *= -1;
             ball.pos.y = bY - ball.radius - 2;
         }
         // ball below brick
-        else if (ball.pos.x >= bX && ball.pos.x <= bX + BRICK_WIDTH && fabs(ball.pos.y - (bY + BRICK_HEIGHT)) <= ball.radius) {
+        else if (ball.pos.x >= bX && ball.pos.x <= bX + BRICK_WIDTH && distancePointLine(ball.pos, leftBottom, rightBottom) <= ball.radius + 0.5) {
+            collision = true;
             ball.speed.y *= -1;
             ball.pos.y = bY + BRICK_HEIGHT + ball.radius + 2;
+        }
+
+
+        //* fallback detection (in case ball gets completely inside the brick)
+        if (!collision) {
+            // ball to the left of brick
+            if (ball.pos.x <= bX && ball.pos.y - ball.radius < bY + BRICK_HEIGHT && ball.pos.y + ball.radius > bY) {
+                ball.speed.x *= -1;
+                ball.pos.x = bX - ball.radius - 2;
+            }
+            // ball to the right of brick
+            else if (ball.pos.x >= bX + BRICK_WIDTH && ball.pos.y - ball.radius < bY + BRICK_HEIGHT && ball.pos.y + ball.radius > bY) {
+                ball.speed.x *= -1;
+                ball.pos.x = bX + BRICK_WIDTH + ball.radius + 2;
+            }
+            // ball above brick
+            else if (ball.pos.y <= bY && ball.pos.x - ball.radius < bX + BRICK_WIDTH && ball.pos.x + ball.radius > bX) {
+                ball.speed.y *= -1;
+                ball.pos.y = bY - ball.radius - 2;
+            }
+            // ball below brick
+            else if (ball.pos.y >= bY + BRICK_HEIGHT && ball.pos.x - ball.radius < bX + BRICK_WIDTH && ball.pos.x + ball.radius > bX) {
+                ball.speed.y *= -1;
+                ball.pos.y = bY + BRICK_HEIGHT + ball.radius + 2;
+            }
+
+            collision = true;
         }
 
         //? NOTE: change this to account for ball velocity later
@@ -499,7 +527,8 @@ void increaseScore(int change) {
 // calculate perpendicular distance between point and a straight line (NOT line segment)
 double distancePointLine(Vector2 point, Vector2 lPoint1, Vector2 lPoint2) {
     // slope
-    double num = fabs((lPoint2.x - lPoint1.x) * (lPoint1.y - point.y) - (lPoint1.x - point.x) * (lPoint2.y - lPoint1.y));
+    // double num = fabs((lPoint2.x - lPoint1.x) * (lPoint1.y - point.y) - (lPoint1.x - point.x) * (lPoint2.y - lPoint1.y));
+    double num = fabs((lPoint2.y - lPoint1.y) * point.x - (lPoint2.x - lPoint1.x) * point.y + lPoint2.x * lPoint1.y - lPoint2.y * lPoint1.x);
     double den = sqrt(pow(lPoint2.x - lPoint1.x, 2) + pow(lPoint2.y - lPoint1.y, 2));
     double dist = 0;
 
