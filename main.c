@@ -2,6 +2,7 @@
 #include "raymath.h"
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 /* Globals and Constants */
 #define WINDOW_WIDTH 1280
@@ -42,7 +43,9 @@ Ball ball;
 const Vector2 INITIAL_BALL_SPEED = (Vector2) { 300.0, -180.0 / 200 * 300 };
 const double BASE_BALL_RADIUS = 7.0;
 
-bool lockBallToPaddle = true;   // makes ball stick to paddle, until player presses space
+bool lockBallToPaddle = true;       // makes ball stick to paddle, until player presses space
+double lastBallLockTime = 0;        // in seconds
+double ballOscillationFreq = 1.0;   // oscillations per second
 
 // Paddle
 typedef struct Paddle {
@@ -100,6 +103,7 @@ void setNewGame();
 void resetBall();
 void resetPaddle();
 
+void lockBall();
 void updateBall();
 void updatePaddle();
 
@@ -188,7 +192,7 @@ void manageGameStates() {
 void switchGameState(int state) {
     if (gameState == 1 & state != 1) {
         debugView = false;
-        lockBallToPaddle = true;
+        lockBall();
     }
 
     if (gameState == 1 && state == 3) {
@@ -328,7 +332,7 @@ void checkMapEdit() {
 
 // Reset ball to starting position
 void resetBall() {
-    lockBallToPaddle = true;
+    lockBall();
     ball.pos = (Vector2) { paddle.rect.x + paddle.rect.width / 2, paddle.rect.y - ball.radius };
     ball.speed = INITIAL_BALL_SPEED;
     ball.radius = BASE_BALL_RADIUS;
@@ -345,12 +349,24 @@ void resetPaddle() {
     paddle.speed = PADDLE_SPEED;
 }
 
+// Lock ball to paddle
+void lockBall() {
+    lockBallToPaddle = true;
+    lastBallLockTime = GetTime();
+}
+
 // Update ball position based on collitions and stuff
 void updateBall() {
     // ball locked to paddle position
     if (lockBallToPaddle) {
-        ball.pos = (Vector2) { paddle.rect.x + paddle.rect.width / 2, paddle.rect.y - ball.radius };
+        // oscillate ball
+        double amp = paddle.rect.width / 2.0 - ball.radius;
+        double timeSinceBallLock = GetTime() - lastBallLockTime;
+        double delx = amp * sin(2 * 3.14159 * ballOscillationFreq * timeSinceBallLock);
+
+        ball.pos = (Vector2) { paddle.rect.x + paddle.rect.width / 2 + delx, paddle.rect.y - ball.radius };
     }
+    // ball free to move across the map
     else {
         const double dt = GetFrameTime();
         const Vector2 initialBallPos = ball.pos;
