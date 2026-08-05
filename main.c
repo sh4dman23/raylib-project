@@ -165,24 +165,26 @@ int main(void) {
     return 0;
 }
 
+// Manage game state changes due to ingame user interaction
 void manageGameStates() {
     if (gameState == 0) {
         // code for main menu ui interactions that change gamestates go here
     }
-    //! current working method to switch to
+    //! current working method to switch to map editor
     else if (gameState == 1 && IsKeyPressed(KEY_F2)) {
         switchGameState(3);
     }
+    // switch from map editor back to main game
     else if (gameState == 3 && IsKeyPressed(KEY_F2)) {
-        // auto save changed map if switched back to main game
-        FILE *mapFile = fopen(MAP_FILE_PATH, "w");
-        writeMapToFile(mapFile);
+        // open last saved map
+        FILE *mapFile = fopen(MAP_FILE_PATH, "r");
+        readMapFromFile(mapFile);
         fclose(mapFile);
         switchGameState(1);
     }
 }
 
-// Switches game states
+// Switches game states, and does necessary changes
 void switchGameState(int state) {
     if (gameState == 1 & state != 1) {
         debugView = false;
