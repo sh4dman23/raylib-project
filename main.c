@@ -45,7 +45,7 @@ const double BASE_BALL_RADIUS = 7.0;
 
 bool lockBallToPaddle = true;       // makes ball stick to paddle, until player presses space
 double lastBallLockTime = 0;        // in seconds
-double ballOscillationFreq = 1.0;   // oscillations per second
+const double BALL_OSCILLATION_FREQ = 1.0;   // oscillations per second
 
 // Paddle
 typedef struct Paddle {
@@ -362,9 +362,10 @@ void updateBall() {
         // oscillate ball
         double amp = paddle.rect.width / 2.0 - ball.radius;
         double timeSinceBallLock = GetTime() - lastBallLockTime;
-        double delx = amp * sin(2 * 3.14159 * ballOscillationFreq * timeSinceBallLock);
+        double delx = amp * sin(2 * 3.14159 * BALL_OSCILLATION_FREQ * timeSinceBallLock);
 
         ball.pos = (Vector2) { paddle.rect.x + paddle.rect.width / 2 + delx, paddle.rect.y - ball.radius };
+        ball.speed.x = (delx / amp) * INITIAL_BALL_SPEED.x;
     }
     // ball free to move across the map
     else {
