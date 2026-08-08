@@ -615,10 +615,25 @@ void drawBricks() {
 
 // Draw map editor on screen
 void drawMapEditor() {
+    // text
+    for (int i = 0; i < maxBrickCols || i < maxBrickRows; i++) {
+        char numText[20];
+        sprintf(numText, "%d", i + 1);
+        Vector2 textSize = MeasureTextEx(GetFontDefault(), numText, 15, 0);
+        if (i < maxBrickCols){
+            DrawText(numText, bricks[i].rect.x + (BRICK_WIDTH - textSize.x) / 2, bricks[i].rect.y - textSize.y - 5, 15, RAYWHITE);
+            DrawText(numText, bricks[i].rect.x + (BRICK_WIDTH - textSize.x) / 2, bricks[maxBrickRows * maxBrickCols - 1].rect.y + BRICK_HEIGHT + 5, 15, RAYWHITE);
+        }
+        if (i < maxBrickRows) {
+            DrawText(numText, bricks[i * maxBrickCols].rect.x - textSize.x - 10, bricks[i * maxBrickCols].rect.y + (BRICK_HEIGHT - 15) / 2, 15, RAYWHITE);
+            DrawText(numText, bricks[(i + 1) * maxBrickCols - 1].rect.x + BRICK_WIDTH + 10, bricks[(i + 1) * maxBrickCols - 1].rect.y + (BRICK_HEIGHT - 15) / 2, 15, RAYWHITE);
+        }
+    }
+
     // bricks & outlines
+    drawBricks();
     for (int i = 0; i < numBricks; i++)
         DrawRectangleLinesEx(bricks[i].rect, 1, RAYWHITE);
-    drawBricks();
 }
 
 // Toggle debug view
