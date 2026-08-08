@@ -40,7 +40,7 @@ typedef struct Ball {
 } Ball;
 
 Ball ball;
-const Vector2 INITIAL_BALL_SPEED = (Vector2) { 300.0, -180.0 / 200 * 300 };
+const Vector2 INITIAL_BALL_SPEED = (Vector2) { 300.0, -350 };
 const double BASE_BALL_RADIUS = 7.0;
 
 bool lockBallToPaddle = true;       // makes ball stick to paddle, until player presses space
@@ -111,7 +111,7 @@ void checkAllCollisions();
 bool checkBallNBrickCollisions();
 
 void bounceBallOnWalls();
-void bounceBallOnPaddle();
+bool bounceBallOnPaddle();
 
 void resetStats();
 void increaseScore(int change);
@@ -365,6 +365,8 @@ void updateBall() {
         double delx = amp * sin(2 * 3.14159 * BALL_OSCILLATION_FREQ * timeSinceBallLock);
 
         ball.pos = (Vector2) { paddle.rect.x + paddle.rect.width / 2 + delx, paddle.rect.y - ball.radius };
+
+        // ball speed depends on displacement from center at the time
         ball.speed.x = (delx / amp) * INITIAL_BALL_SPEED.x;
     }
     // ball free to move across the map
@@ -390,7 +392,12 @@ void updateBall() {
             ball.pos = Vector2Add(initialBallPos, displacement);
 
         bounceBallOnWalls();
-        bounceBallOnPaddle();
+        if (bounceBallOnPaddle()) {
+            double delx = ball.pos.x - (paddle.rect.x + paddle.rect.width / 2);
+
+            // add accelerated ball speed here
+            ball.speed.x = delx / (paddle.rect.width / 2 - ball.radius) * INITIAL_BALL_SPEED.x;
+        }
     }
 }
 
@@ -420,15 +427,20 @@ void bounceBallOnWalls() {
 }
 
 // Reflect ball off of the paddle
-void bounceBallOnPaddle() {
+bool bounceBallOnPaddle() {
+    bool collision = false;
     if (ball.pos.x + ball.radius >= paddle.rect.x && ball.pos.x - ball.radius <= paddle.rect.x + paddle.rect.width &&
         ball.pos.y + ball.radius >= paddle.rect.y) {
         ball.speed.y *= -1;
         ball.pos.y = paddle.rect.y - (ball.radius + 1);
+        collision = true;
     }
     else if (CheckCollisionCircleRec(ball.pos, ball.radius, paddle.rect)) {
         ball.speed.y *= -1;
+        collision = true;
     }
+
+    return collision;
 }
 
 // Update paddle position based on player input
@@ -475,27 +487,27 @@ bool checkBallNBrickCollisions() {
         if (ball.pos.y >= bY && ball.pos.y <= bY + BRICK_HEIGHT && distancePointLine(ball.pos, leftTop, leftBottom) <= ball.radius + 0.5) {
             collision = true;
             ball.speed.x *= -1;
-            ball.pos.x = bX - ball.radius - 2;
+            ball.pos.x = bX - ball.radius - 1;
 
         }
         // ball to the right of brick
         else if (ball.pos.y >= bY && ball.pos.y <= bY + BRICK_HEIGHT && distancePointLine(ball.pos, rightTop, rightBottom) <= ball.radius + 0.5) {
             collision = true;
             ball.speed.x *= -1;
-            ball.pos.x = bX + BRICK_WIDTH + ball.radius + 2;
+            ball.pos.x = bX + BRICK_WIDTH + ball.radius + 1;
         }
 
         // ball above brick
         if (ball.pos.x >= bX && ball.pos.x <= bX + BRICK_WIDTH && distancePointLine(ball.pos, leftTop, rightTop) <= ball.radius + 0.5) {
             collision = true;
             ball.speed.y *= -1;
-            ball.pos.y = bY - ball.radius - 2;
+            ball.pos.y = bY - ball.radius - 1;
         }
         // ball below brick
         else if (ball.pos.x >= bX && ball.pos.x <= bX + BRICK_WIDTH && distancePointLine(ball.pos, leftBottom, rightBottom) <= ball.radius + 0.5) {
             collision = true;
             ball.speed.y *= -1;
-            ball.pos.y = bY + BRICK_HEIGHT + ball.radius + 2;
+            ball.pos.y = bY + BRICK_HEIGHT + ball.radius + 1;
         }
 
 
@@ -504,22 +516,22 @@ bool checkBallNBrickCollisions() {
             // ball to the left of brick
             if (ball.pos.x <= bX && ball.pos.y - ball.radius < bY + BRICK_HEIGHT && ball.pos.y + ball.radius > bY) {
                 ball.speed.x *= -1;
-                ball.pos.x = bX - ball.radius - 2;
+                ball.pos.x = bX - ball.radius - 1;
             }
             // ball to the right of brick
             else if (ball.pos.x >= bX + BRICK_WIDTH && ball.pos.y - ball.radius < bY + BRICK_HEIGHT && ball.pos.y + ball.radius > bY) {
                 ball.speed.x *= -1;
-                ball.pos.x = bX + BRICK_WIDTH + ball.radius + 2;
+                ball.pos.x = bX + BRICK_WIDTH + ball.radius + 1;
             }
             // ball above brick
             else if (ball.pos.y <= bY && ball.pos.x - ball.radius < bX + BRICK_WIDTH && ball.pos.x + ball.radius > bX) {
                 ball.speed.y *= -1;
-                ball.pos.y = bY - ball.radius - 2;
+                ball.pos.y = bY - ball.radius - 1;
             }
             // ball below brick
             else if (ball.pos.y >= bY + BRICK_HEIGHT && ball.pos.x - ball.radius < bX + BRICK_WIDTH && ball.pos.x + ball.radius > bX) {
                 ball.speed.y *= -1;
-                ball.pos.y = bY + BRICK_HEIGHT + ball.radius + 2;
+                ball.pos.y = bY + BRICK_HEIGHT + ball.radius + 1;
             }
 
             collision = true;
@@ -562,8 +574,8 @@ double distancePointLine(Vector2 point, Vector2 lPoint1, Vector2 lPoint2) {
 // Contains all draw calls; func called inside game loop
 void drawLoop() {
     if (gameState == 1) {
-        drawPaddle();
         drawBricks();
+        drawPaddle();
         drawBall();
         drawDebugView();
     }
