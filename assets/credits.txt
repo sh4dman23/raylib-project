@@ -1,0 +1,5 @@
+Credits for image assets:
+1. https://www.spriters-resource.com/pc_computer/dxball (ball, board/paddle, bricks/blocks, perks/power-ups)
+2. https://github.com/thoth-tech/DXBallGame/tree/main/images (bricks/blocks)
+3. https://steamcommunity.com/sharedfiles/filedetails/?id=1573212121 (perks/power-ups)
+4. https://dx-ball.ru/ (animated logo and ball on home screen)

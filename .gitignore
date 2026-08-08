@@ -1,2 +1,4 @@
 *.exe
 *.log
+.vscode
+*.rar
