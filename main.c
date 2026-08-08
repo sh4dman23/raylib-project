@@ -40,8 +40,10 @@ typedef struct Ball {
 } Ball;
 
 Ball ball;
+
+Texture2D ballImage;
 const Vector2 INITIAL_BALL_SPEED = (Vector2) { 300.0, -180.0 / 200 * 300 };
-const double BASE_BALL_RADIUS = 7.0;
+const double BASE_BALL_RADIUS = 5.0;
 
 bool lockBallToPaddle = true;       // makes ball stick to paddle, until player presses space
 double lastBallLockTime = 0;        // in seconds
@@ -54,6 +56,9 @@ typedef struct Paddle {
 } Paddle;
 
 Paddle paddle;
+
+Texture2D paddleImage;
+
 const int BASE_PADDLE_WIDTH = 74;
 const int BASE_PADDLE_HEIGHT = 15;
 const Vector2 PADDLE_SPEED = (Vector2) { 10, 0 };   //* unit: pixels per key input
@@ -572,11 +577,14 @@ void drawLoop() {
 }
 
 void drawBall() {
-    DrawCircle(ball.pos.x, ball.pos.y, ball.radius, ORANGE);
+    ballImage = LoadTexture("./assets/ball.png");
+    DrawTextureEx(ballImage, ball.pos, 0.0f, 1.0f, WHITE);
+    // DrawCircle(ball.pos.x, ball.pos.y, ball.radius, ORANGE);
 }
 
 void drawPaddle() {
-    DrawRectangleRec(paddle.rect, RAYWHITE);
+    paddleImage = LoadTexture("./assets/paddles/0.png");
+    DrawTextureEx(paddleImage, (Vector2) {paddle.rect.x, paddle.rect.y}, 0.0f, 1.0f, WHITE);
 }
 
 // Draw bricks at positions based on type
