@@ -663,7 +663,7 @@ void drawLoop()
 
 void drawBall()
 {
-    DrawTextureEx(ballImage, (Vector2){ball.pos.x - ball.radius, ball.pos.y}, 0.0f, 1.0f, WHITE);
+    DrawTextureEx(ballImage, (Vector2){ball.pos.x - ball.radius, ball.pos.y - ball.radius}, 0.0f, 1.0f, WHITE);
 }
 
 void drawPaddle()
