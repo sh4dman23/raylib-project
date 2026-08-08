@@ -50,7 +50,7 @@ Texture2D ballImage;
 const Vector2 INITIAL_BALL_SPEED = (Vector2){300.0, -350};
 const double BASE_BALL_RADIUS = 5.0;
 
-bool lockBallToPaddle = true;       // makes ball stick to paddle, until player presses space
+bool ballLockedToPaddle = true;       // makes ball stick to paddle, until player presses space
 double lastBallLockTime = 0;        // in seconds
 const double BALL_OSCILLATION_FREQ = 1.0;   // oscillations per second
 
@@ -130,6 +130,8 @@ bool checkBallNBrickCollisions();
 void bounceBallOnBoundaries();
 bool bounceBallOnPaddle();
 
+void updatePlayTime();
+
 void resetStats();
 void increaseScore(int change);
 
@@ -173,24 +175,31 @@ int main(void)
     while (!WindowShouldClose())
     {
         manageDebugView();
-
         manageGameStates();
 
-        // updates
+        //* updates
+
+        // core game
         if (gameState == 1)
         {
+            updatePlayTime();
+
             updatePaddle();
             updateBall();
 
             // collisions
             checkAllCollisions();
+
+            // check death
+            checkGameEnd();
         }
+        // map editor
         else if (gameState == 3)
         {
             checkMapEdit();
         }
 
-        // draws
+        // draw
         BeginDrawing();
         ClearBackground(BLACK);
         drawLoop();
@@ -255,6 +264,20 @@ void setNewGame()
     resetPaddle();
     resetBall();
     resetStats();
+}
+
+void updatePlayTime() {
+    static double time = 0;
+    const double interval = 1.0;
+
+    if (gameState != 1 || ballLockedToPaddle)
+        return;
+
+    time += GetFrameTime();
+    if (time >= interval) {
+        playtime++;
+        time = 0;
+    }
 }
 
 void resetStats()
@@ -416,7 +439,7 @@ void resetPaddle()
 // Lock ball to paddle
 void lockBall()
 {
-    lockBallToPaddle = true;
+    ballLockedToPaddle = true;
     lastBallLockTime = GetTime();
 }
 
@@ -424,7 +447,7 @@ void lockBall()
 void updateBall()
 {
     // ball locked to paddle position
-    if (lockBallToPaddle)
+    if (ballLockedToPaddle)
     {
         // oscillate ball
         double amp = paddle.rect.width / 2.0 - ball.radius;
@@ -533,7 +556,7 @@ void updatePaddle()
 {
     // unlock ball from paddle
     if (IsKeyDown(KEY_SPACE))
-        lockBallToPaddle = false;
+        ballLockedToPaddle = false;
 
     // move paddle sideways
     if (IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_A))
@@ -740,7 +763,7 @@ void drawMainGameUI() {
     sprintf(scoreText, "%d", playerScore);
     DrawText(scoreText, (GetScreenWidth() - MeasureText(scoreText, 18)) / 2, PADDING_ABOVE_UI + 18 * 1.4, 18, RAYWHITE);
 
-    // lives
+    // lives (right)
     for (int i = 0; i < lives; i++) {
         DrawTextureRec(lifeTexture,
             (Rectangle) { 0, 0, lifeTexture.width, lifeTexture.height },
