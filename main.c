@@ -141,6 +141,9 @@ int main(void) {
     // initialize game
     initializeGame();
 
+    // make it so, esc key doesn't close the game
+    SetExitKey(NULL);
+
     while (!WindowShouldClose()) {
         manageDebugView();
 
