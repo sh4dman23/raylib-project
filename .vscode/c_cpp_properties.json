@@ -11,7 +11,7 @@
         "UNICODE",
         "_UNICODE"
       ],
-      "compilerPath": "C:/Program Files/CodeBlocks/MinGW/bin/gcc.exe",
+      "compilerPath": "C:/msys64/ucrt64/bin/gdb.exe",
       "cStandard": "c11",
       "intelliSenseMode": "windows-gcc-x64"
     }
