@@ -59,20 +59,18 @@ typedef struct Paddle
 
 Paddle paddle;
 
-Texture2D paddleImage;
-
 const int BASE_PADDLE_WIDTH = 74;
 const int BASE_PADDLE_HEIGHT = 15;
 const Vector2 PADDLE_SPEED = (Vector2){10, 0}; //* unit: pixels per key input
 const int SPACE_BELOW_PADDLE = 5;              // pixels below paddle
 
+// paddle texture
+Texture2D paddleImage;
+
 // Bricks
 #define MAX_NUMBER_OF_BRICKS 1000
 const float BRICK_WIDTH = 60;
 const float BRICK_HEIGHT = 20;
-
-// Brick Textures
-Texture2D brickTextures[4];
 
 // paddings for map
 const double PADDING_ABOVE_MAP = 100;
@@ -97,13 +95,16 @@ const int MIN_BRICK_TYPE = -1;
 
 Brick bricks[MAX_NUMBER_OF_BRICKS];
 
+// brick textures
+#define NUM_BRICK_TEXTURES 4
+Texture2D brickTextures[NUM_BRICK_TEXTURES];
+
 // Map Related
 #define MAP_FILE_PATH "./map.txt"
 
 /* Function Prototypes */
 void initializeGame();
 void initializeMap();
-void loadSprites();
 
 void manageDebugView();
 void manageGameStates();
@@ -138,6 +139,10 @@ void writeMapToFile(FILE *outputFile);
 // Map Editor
 void checkMapEdit();
 
+// Sprites
+void loadSprites();
+void unloadSprites();
+
 // Draw Functions
 void drawLoop();
 void drawBall();
@@ -156,7 +161,7 @@ int main(void)
     loadSprites();
 
     // make it so, esc key doesn't close the game
-    SetExitKey(NULL);
+    SetExitKey(0);
 
     while (!WindowShouldClose())
     {
@@ -183,19 +188,10 @@ int main(void)
         drawLoop();
         EndDrawing();
     }
+
+    unloadSprites();
     CloseWindow();
     return 0;
-}
-
-// Load all textures 
-void loadSprites()
-{
-    ballImage = LoadTexture("./assets/ball.png");
-    paddleImage = LoadTexture("./assets/paddles/0.png");
-    brickTextures[0] = LoadTexture("./assets/bricks/1.png");  // Type 1
-    brickTextures[1] = LoadTexture("./assets/bricks/2.png");  // Type 2
-    brickTextures[2] = LoadTexture("./assets/bricks/3.png");  // Type 3
-    brickTextures[3] = LoadTexture("./assets/bricks/-1.png"); // Type -1
 }
 
 // Manage game state changes due to ingame user interaction
@@ -501,7 +497,9 @@ void bounceBallOnWalls()
 bool bounceBallOnPaddle()
 {
     bool collision = false;
-    if (ball.pos.x + ball.radius >= paddle.rect.x && ball.pos.x - ball.radius <= paddle.rect.x + paddle.rect.width &&
+
+    // 4 pixels of extra length on both sides to allow for fairer jump
+    if (ball.pos.x >= paddle.rect.x - 4 && ball.pos.x <= paddle.rect.x + paddle.rect.width + 4 &&
         ball.pos.y + ball.radius >= paddle.rect.y)
     {
         ball.speed.y *= -1;
@@ -662,6 +660,26 @@ double distancePointLine(Vector2 point, Vector2 lPoint1, Vector2 lPoint2)
     return dist;
 }
 
+// Load all textures
+void loadSprites()
+{
+    ballImage = LoadTexture("./assets/ball.png");
+    paddleImage = LoadTexture("./assets/paddles/0.png");
+    brickTextures[0] = LoadTexture("./assets/bricks/1.png");  // Type 1
+    brickTextures[1] = LoadTexture("./assets/bricks/2.png");  // Type 2
+    brickTextures[2] = LoadTexture("./assets/bricks/3.png");  // Type 3
+    brickTextures[3] = LoadTexture("./assets/bricks/-1.png"); // Type -1
+}
+
+// Inverse function to loadSprites(); unloads all sprites
+void unloadSprites()
+{
+    UnloadTexture(ballImage);
+    UnloadTexture(paddleImage);
+    for (int i = 0; i < NUM_BRICK_TEXTURES; i++)
+        UnloadTexture(brickTextures[i]);
+}
+
 // Contains all draw calls; func called inside game loop
 void drawLoop() {
     if (gameState == 1) {
@@ -697,19 +715,12 @@ void drawBricks()
         if (bricks[i].type == 0)
             continue;
         else if (bricks[i].type == 1)
-            // brickColor = BLUE;
             brickImage = brickTextures[0];
         else if (bricks[i].type == 2)
-            // brickColor = YELLOW;
-            // brickImage = LoadTexture("./assets/bricks/2.png");
             brickImage = brickTextures[1];
         else if (bricks[i].type == 3)
-            // brickColor = RED;
-            // brickImage = LoadTexture("./assets/bricks/3.png");
             brickImage = brickTextures[2];
         else if (bricks[i].type == -1)
-            // brickColor = BROWN;
-            // brickImage = LoadTexture("./assets/bricks/-1.png");
             brickImage = brickTextures[3];
 
         // draw brick
@@ -771,9 +782,10 @@ void drawDebugView()
 {
     if (!debugView)
         return;
+
     // outlines
-    DrawCircleLinesV(ball.pos, ball.radius + 1, RED);
-    DrawRectangleLinesEx((Rectangle){paddle.rect.x - 2, paddle.rect.y - 2, paddle.rect.width + 4, paddle.rect.height + 4}, 5, RED);
+    DrawCircleLinesV(ball.pos, ball.radius, RED);
+    DrawRectangleLinesEx((Rectangle){paddle.rect.x - 4, paddle.rect.y - 2, paddle.rect.width + 8    , paddle.rect.height + 4}, 1, RED);
 
     // stats
     char fpsText[20] = {'\0'};
