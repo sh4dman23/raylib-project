@@ -145,6 +145,7 @@ void unloadSprites();
 
 // Draw Functions
 void drawLoop();
+void drawMainGameUI();
 void drawBall();
 void drawPaddle();
 void drawBricks();
@@ -168,6 +169,7 @@ int main(void)
         manageDebugView();
 
         manageGameStates();
+
         // updates
         if (gameState == 1)
         {
@@ -175,7 +177,7 @@ int main(void)
             updateBall();
 
             // collisions
-            // checkAllCollisions();
+            checkAllCollisions();
         }
         else if (gameState == 3)
         {
@@ -454,11 +456,16 @@ void updateBall()
             ball.pos = Vector2Add(initialBallPos, displacement);
 
         bounceBallOnWalls();
+
+        // bounce ball on paddle and angle ball using that
         if (bounceBallOnPaddle()) {
             double delx = ball.pos.x - (paddle.rect.x + paddle.rect.width / 2);
 
             // add accelerated ball speed here
-            ball.speed.x = delx / (paddle.rect.width / 2 - ball.radius) * INITIAL_BALL_SPEED.x;
+            ball.speed.x = (ball.speed.x > 0 ? 1 : -1) * (fabs(delx) / (paddle.rect.width / 2)) * max(fabs(ball.speed.x), INITIAL_BALL_SPEED.x);
+
+            if (delx > 0 != ball.speed.x > 0)
+                ball.speed.x *= -1;
         }
     }
 }
@@ -506,7 +513,7 @@ bool bounceBallOnPaddle()
         ball.pos.y = paddle.rect.y - (ball.radius + 1);
         collision = true;
     }
-    else if (CheckCollisionCircleRec(ball.pos, ball.radius, paddle.rect))
+    else if (CheckCollisionCircleRec(ball.pos, ball.radius, (Rectangle) {paddle.rect.x - 4, paddle.rect.y, paddle.rect.width + 8, paddle.rect.height}))
     {
         ball.speed.y *= -1;
         collision = true;
@@ -528,6 +535,9 @@ void updatePaddle()
     else if (IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D))
         paddle.rect.x += paddle.speed.x;
 
+    // check collisions with ball since its fast moving
+    bounceBallOnPaddle();
+
     // bound within the walls
     if (paddle.rect.x < 0)
     {
@@ -541,6 +551,8 @@ void updatePaddle()
 
 void checkAllCollisions()
 {
+    bounceBallOnPaddle();
+    bounceBallOnWalls();
     checkBallNBrickCollisions();
 }
 
@@ -550,6 +562,7 @@ bool checkBallNBrickCollisions()
     bool collision = false;
     for (int i = 0; i < numBricks; i++)
     {
+        bool collisionNow = false;
         // no collisions for empty bricks
         if (bricks[i].type == 0 || !CheckCollisionCircleRec(ball.pos, ball.radius, bricks[i].rect))
             continue;
@@ -564,7 +577,7 @@ bool checkBallNBrickCollisions()
         // ball to the left of brick
         if (ball.pos.y >= bY && ball.pos.y <= bY + BRICK_HEIGHT && distancePointLine(ball.pos, leftTop, leftBottom) <= ball.radius + 0.5)
         {
-            collision = true;
+            collisionNow = true;
             ball.speed.x *= -1;
             ball.pos.x = bX - ball.radius - 1;
 
@@ -572,7 +585,7 @@ bool checkBallNBrickCollisions()
         // ball to the right of brick
         else if (ball.pos.y >= bY && ball.pos.y <= bY + BRICK_HEIGHT && distancePointLine(ball.pos, rightTop, rightBottom) <= ball.radius + 0.5)
         {
-            collision = true;
+            collisionNow = true;
             ball.speed.x *= -1;
             ball.pos.x = bX + BRICK_WIDTH + ball.radius + 1;
         }
@@ -580,20 +593,20 @@ bool checkBallNBrickCollisions()
         // ball above brick
         if (ball.pos.x >= bX && ball.pos.x <= bX + BRICK_WIDTH && distancePointLine(ball.pos, leftTop, rightTop) <= ball.radius + 0.5)
         {
-            collision = true;
+            collisionNow = true;
             ball.speed.y *= -1;
             ball.pos.y = bY - ball.radius - 1;
         }
         // ball below brick
         else if (ball.pos.x >= bX && ball.pos.x <= bX + BRICK_WIDTH && distancePointLine(ball.pos, leftBottom, rightBottom) <= ball.radius + 0.5)
         {
-            collision = true;
+            collisionNow = true;
             ball.speed.y *= -1;
             ball.pos.y = bY + BRICK_HEIGHT + ball.radius + 1;
         }
 
         //* fallback detection (in case ball gets completely inside the brick)
-        if (!collision)
+        if (!collisionNow)
         {
             // ball to the left of brick
             if (ball.pos.x <= bX && ball.pos.y - ball.radius < bY + BRICK_HEIGHT && ball.pos.y + ball.radius > bY)
@@ -620,7 +633,7 @@ bool checkBallNBrickCollisions()
                 ball.pos.y = bY + BRICK_HEIGHT + ball.radius + 1;
             }
 
-            collision = true;
+            collisionNow = true;
         }
 
         //? NOTE: change this to account for ball velocity later
@@ -683,15 +696,21 @@ void unloadSprites()
 // Contains all draw calls; func called inside game loop
 void drawLoop() {
     if (gameState == 1) {
-        drawBricks();
         drawPaddle();
         drawBall();
+        drawBricks();
         drawDebugView();
     }
     else if (gameState == 3)
     {
         drawMapEditor();
     }
+}
+
+void drawMainGameUI() {
+    // time (left)
+    // score (middle)
+    // lives (right)
 }
 
 void drawBall()
