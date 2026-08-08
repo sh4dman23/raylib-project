@@ -12,16 +12,14 @@
 #define max(a, b) ((a) > (b) ? (a) : (b))
 #define min(a, b) ((a) < (b) ? (a) : (b))
 
-bool debugView = false;
-
-// Game States
+//* Game States
 // 0 = main menu (unimplemented)
 // 1 = main game
 // 2 = game end (unimplemented)
 // 3 = map editor
 int gameState = 1;
 
-// Ingame statistics
+// Core game statistics
 int playerScore = 0;
 double scoreMultiplier = 1.0;
 int playtime = 0;
@@ -30,7 +28,13 @@ const int STARTING_LIVES = 3;
 
 const int BASE_BRICK_HIT_SCORE = 50;
 
-//? NOTE: most speeds are in units PIXELS PER SECOND
+// Core game UI
+const double PADDING_ABOVE_UI = 20;
+const double PADDING_SIDES_UI = 20;
+
+bool debugView = false;
+
+Texture2D lifeTexture;
 
 // Ball
 typedef struct Ball
@@ -123,11 +127,13 @@ void updatePaddle();
 void checkAllCollisions();
 bool checkBallNBrickCollisions();
 
-void bounceBallOnWalls();
+void bounceBallOnBoundaries();
 bool bounceBallOnPaddle();
 
 void resetStats();
 void increaseScore(int change);
+
+void checkGameEnd();
 
 double distancePointLine(Vector2 point, Vector2 lPoint1, Vector2 lPoint2);
 
@@ -455,7 +461,7 @@ void updateBall()
         if (!collision)
             ball.pos = Vector2Add(initialBallPos, displacement);
 
-        bounceBallOnWalls();
+        bounceBallOnBoundaries();
 
         // bounce ball on paddle and angle ball using that
         if (bounceBallOnPaddle()) {
@@ -471,7 +477,7 @@ void updateBall()
 }
 
 // Reflect ball off of the walls and ceiling, but cause death upon falling below
-void bounceBallOnWalls()
+void bounceBallOnBoundaries()
 {
     // ball bounces off walls
     if (ball.pos.x - ball.radius < 0 || ball.pos.x + ball.radius > GetScreenWidth())
@@ -483,20 +489,20 @@ void bounceBallOnWalls()
             ball.pos.x = GetScreenWidth() - ball.radius;
     }
 
-    // ball bounces off ceiling and floor (for now)
-    if (ball.pos.y - ball.radius < 0 || ball.pos.y + ball.radius > GetScreenHeight())
+    // ball bounces off ceiling
+    if (ball.pos.y - ball.radius < 0)
     {
         ball.speed.y *= -1;
-        if (ball.pos.y - ball.radius < 0)
-        {
-            ball.pos.y = ball.radius;
-        }
-        else
-        {
-            resetPaddle();
-            resetBall();
-            //? handle death logic here
-        }
+        ball.pos.y = ball.radius;
+
+    }
+    else if (ball.pos.y + ball.radius > GetScreenHeight())
+    {
+        resetPaddle();
+        resetBall();
+        if (lives > 0)
+            lives--;
+        checkGameEnd();
     }
 }
 
@@ -552,7 +558,7 @@ void updatePaddle()
 void checkAllCollisions()
 {
     bounceBallOnPaddle();
-    bounceBallOnWalls();
+    bounceBallOnBoundaries();
     checkBallNBrickCollisions();
 }
 
@@ -656,7 +662,14 @@ void increaseScore(int change)
     playerScore += change * scoreMultiplier;
 }
 
-// calculate perpendicular distance between point and a straight line (NOT line segment)
+// Check whether conditions for game end are met
+// and transition to end game state (gameState = 2)
+void checkGameEnd() {
+    //? to be implemented
+}
+
+// Calculate perpendicular distance between point and a straight line
+// (NOT line segment)
 double distancePointLine(Vector2 point, Vector2 lPoint1, Vector2 lPoint2)
 {
     // slope
@@ -676,17 +689,19 @@ double distancePointLine(Vector2 point, Vector2 lPoint1, Vector2 lPoint2)
 // Load all textures
 void loadSprites()
 {
+    lifeTexture = LoadTexture("./assets/life.png");
     ballImage = LoadTexture("./assets/ball.png");
-    paddleImage = LoadTexture("./assets/paddles/0.png");
-    brickTextures[0] = LoadTexture("./assets/bricks/1.png");  // Type 1
-    brickTextures[1] = LoadTexture("./assets/bricks/2.png");  // Type 2
-    brickTextures[2] = LoadTexture("./assets/bricks/3.png");  // Type 3
-    brickTextures[3] = LoadTexture("./assets/bricks/-1.png"); // Type -1
+    paddleImage = LoadTexture("./assets/paddles/0.png");        // base paddle
+    brickTextures[0] = LoadTexture("./assets/bricks/1.png");    // Type 1
+    brickTextures[1] = LoadTexture("./assets/bricks/2.png");    // Type 2
+    brickTextures[2] = LoadTexture("./assets/bricks/3.png");    // Type 3
+    brickTextures[3] = LoadTexture("./assets/bricks/-1.png");   // Type -1
 }
 
 // Inverse function to loadSprites(); unloads all sprites
 void unloadSprites()
 {
+    UnloadTexture(lifeTexture);
     UnloadTexture(ballImage);
     UnloadTexture(paddleImage);
     for (int i = 0; i < NUM_BRICK_TEXTURES; i++)
@@ -695,12 +710,17 @@ void unloadSprites()
 
 // Contains all draw calls; func called inside game loop
 void drawLoop() {
+    // core game
     if (gameState == 1) {
         drawPaddle();
         drawBall();
         drawBricks();
-        drawDebugView();
+        if (debugView)
+            drawDebugView();
+        else
+            drawMainGameUI();
     }
+    // map editor
     else if (gameState == 3)
     {
         drawMapEditor();
@@ -709,8 +729,26 @@ void drawLoop() {
 
 void drawMainGameUI() {
     // time (left)
+    DrawText("Time", PADDING_SIDES_UI, PADDING_ABOVE_UI, 16, RAYWHITE);
+    char timeText[20];
+    sprintf(timeText, "%02d : %02d", playtime / 60, playtime % 60);
+    DrawText(timeText, PADDING_SIDES_UI, PADDING_ABOVE_UI + 16 * 1.4, 16, RAYWHITE);
+
     // score (middle)
-    // lives (right)
+    DrawText("Score", (GetScreenWidth() - MeasureText("Score", 18)) / 2, PADDING_ABOVE_UI, 18, RAYWHITE);
+    char scoreText[20];
+    sprintf(scoreText, "%d", playerScore);
+    DrawText(scoreText, (GetScreenWidth() - MeasureText(scoreText, 18)) / 2, PADDING_ABOVE_UI + 18 * 1.4, 18, RAYWHITE);
+
+    // lives
+    for (int i = 0; i < lives; i++) {
+        DrawTextureRec(lifeTexture,
+            (Rectangle) { 0, 0, lifeTexture.width, lifeTexture.height },
+            (Vector2) { GetScreenWidth() - PADDING_SIDES_UI - (i + 1) * lifeTexture.width - i * 5,
+                        PADDING_ABOVE_UI + 20 },
+            WHITE
+        );
+    }
 }
 
 void drawBall()
