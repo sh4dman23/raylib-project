@@ -4,19 +4,20 @@
 #include <string.h>
 #include <time.h>
 
+#define max(a, b) ((a) > (b) ? (a) : (b))
+#define min(a, b) ((a) < (b) ? (a) : (b))
+
 /* Globals and Constants */
 #define WINDOW_WIDTH 1280
 #define WINDOW_HEIGHT 720
 #define GAME_WINDOW_TITLE "DXBall"
-
-#define max(a, b) ((a) > (b) ? (a) : (b))
-#define min(a, b) ((a) < (b) ? (a) : (b))
 
 //* Game States
 // 0 = main menu (unimplemented)
 // 1 = main game
 // 2 = game end (unimplemented)
 // 3 = map editor
+// 4 = high score (unimplemented)
 int gameState = 1;
 
 // Core game statistics
@@ -48,10 +49,12 @@ Ball ball;
 
 Texture2D ballImage;
 const Vector2 INITIAL_BALL_SPEED = (Vector2){300.0, -350};
+// slow ball, fast ball speeds
+
 const double BASE_BALL_RADIUS = 5.0;
 
-bool ballLockedToPaddle = true;       // makes ball stick to paddle, until player presses space
-double lastBallLockTime = 0;        // in seconds
+bool ballLockedToPaddle = true;             // makes ball stick to paddle, until player presses space
+double lastBallLockTime = 0;                // in seconds
 const double BALL_OSCILLATION_FREQ = 1.0;   // oscillations per second
 
 // Paddle
@@ -125,7 +128,7 @@ void updateBall();
 void updatePaddle();
 
 void checkAllCollisions();
-bool checkBallNBrickCollisions();
+bool checkBallNBrickCollisions(); //! to be improved
 
 void bounceBallOnBoundaries();
 bool bounceBallOnPaddle();
@@ -170,7 +173,7 @@ int main(void)
     loadSprites();
 
     // make it so, esc key doesn't close the game
-    SetExitKey(0);
+    SetExitKey(KEY_NULL);
 
     while (!WindowShouldClose())
     {
@@ -178,7 +181,6 @@ int main(void)
         manageGameStates();
 
         //* updates
-
         // core game
         if (gameState == 1)
         {
@@ -237,12 +239,14 @@ void manageGameStates()
 // Switches game states, and does necessary changes
 void switchGameState(int state)
 {
-    if (gameState == 1 & state != 1)
+    // main game -> any other mode
+    if (gameState == 1 && state != 1)
     {
         debugView = false;
         lockBall();
     }
 
+    // main game -> map editor
     if (gameState == 1 && state == 3)
     {
         setNewGame();
@@ -266,6 +270,7 @@ void setNewGame()
     resetStats();
 }
 
+// Update playtime variable every second
 void updatePlayTime() {
     static double time = 0;
     const double interval = 1.0;
@@ -308,12 +313,14 @@ void setEmptyMap()
         for (int j = 0; j < maxBrickCols; j++)
         {
             bricks[i * maxBrickCols + j] = (Brick){
-                (Rectangle){
+                (Rectangle) {
                     px,
                     py,
                     BRICK_WIDTH,
-                    BRICK_HEIGHT},
-                0};
+                    BRICK_HEIGHT
+                },
+                0   // type 0 = empty brick
+            };
 
             px += BRICK_WIDTH;
         }
@@ -466,6 +473,7 @@ void updateBall()
         const Vector2 initialBallPos = ball.pos;
         Vector2 displacement = Vector2Scale(ball.speed, dt);
 
+        // store collision with brick
         bool collision = false;
 
         // move ball in incremental amounts (minimum 1 times) and check for collisions (emulate spherecast)
@@ -488,11 +496,13 @@ void updateBall()
 
         // bounce ball on paddle and angle ball using that
         if (bounceBallOnPaddle()) {
+            // signed distance between ball center and paddle center
             double delx = ball.pos.x - (paddle.rect.x + paddle.rect.width / 2);
 
             // add accelerated ball speed here
             ball.speed.x = (ball.speed.x > 0 ? 1 : -1) * (fabs(delx) / (paddle.rect.width / 2)) * max(fabs(ball.speed.x), INITIAL_BALL_SPEED.x);
 
+            // if dx and vx have opposite signs, flip vx
             if (delx > 0 != ball.speed.x > 0)
                 ball.speed.x *= -1;
         }
@@ -680,12 +690,13 @@ bool checkBallNBrickCollisions()
     return collision;
 }
 
+// Increase player score based on score multiplier
 void increaseScore(int change)
 {
     playerScore += change * scoreMultiplier;
 }
 
-// Check whether conditions for game end are met
+// Check whether conditions for game end are met (lives = 0)
 // and transition to end game state (gameState = 2)
 void checkGameEnd() {
     //? to be implemented
@@ -703,7 +714,7 @@ double distancePointLine(Vector2 point, Vector2 lPoint1, Vector2 lPoint2)
 
     // if lPoint1 and lPoint2 are same
     if (den == 0)
-        dist = sqrt(pow(lPoint2.x - point.x, 2) + pow(lPoint2.y - point.y, 2));
+        dist = Vector2Distance(point, lPoint1);
     else
         dist = num / den;
     return dist;
@@ -789,8 +800,7 @@ void drawBricks()
 {
     for (int i = 0; i < numBricks; i++)
     {
-        // pick color
-        Color brickColor = (Color){0, 0, 0, 0};
+        // pick texture
         Texture2D brickImage;
         if (bricks[i].type == 0)
             continue;
@@ -804,14 +814,14 @@ void drawBricks()
             brickImage = brickTextures[3];
 
         // draw brick
-        // DrawRectangleRec(bricks[i].rect, brickColor);
         DrawTextureEx(brickImage, (Vector2){bricks[i].rect.x, bricks[i].rect.y}, 0.0f, 1.0f, WHITE);
     }
 }
 
 // Draw map editor on screen
 void drawMapEditor() {
-    // text
+
+    // row and column number
     for (int i = 0; i < maxBrickCols || i < maxBrickRows; i++) {
         char numText[20];
         sprintf(numText, "%d", i + 1);
