@@ -13,12 +13,13 @@
 #define GAME_WINDOW_TITLE "DXBall"
 
 //* Game States
-// 0 = main menu (unimplemented)
-// 1 = main game
-// 2 = game end (unimplemented)
-// 3 = map editor
-// 4 = high score (unimplemented)
-int gameState = 1;
+#define GS_MAIN_MENU 0      // 0 = main menu (unimplemented)
+#define GS_MAIN_GAME 1      // 1 = main game
+#define GS_GAME_END 2       // 2 = game end (unimplemented)
+#define GS_MAP_EDITOR 3     // 3 = map editor
+#define GS_HIGH_SCORES 4    // 4 = high scores (unimplemented)
+
+int gameState = GS_MAIN_GAME;
 
 // Core game statistics
 int playerScore = 0;
@@ -49,7 +50,7 @@ Ball ball;
 
 Texture2D ballImage;
 const Vector2 INITIAL_BALL_SPEED = (Vector2){300.0, -350};
-// slow ball, fast ball speeds
+// slow ball, fast ball speeds (to be implemented)
 
 const double BASE_BALL_RADIUS = 5.0;
 
@@ -182,7 +183,7 @@ int main(void)
 
         //* updates
         // core game
-        if (gameState == 1)
+        if (gameState == GS_MAIN_GAME)
         {
             updatePlayTime();
 
@@ -196,7 +197,7 @@ int main(void)
             checkGameEnd();
         }
         // map editor
-        else if (gameState == 3)
+        else if (gameState == GS_MAIN_MENU)
         {
             checkMapEdit();
         }
@@ -216,23 +217,23 @@ int main(void)
 // Manage game state changes due to ingame user interaction
 void manageGameStates()
 {
-    if (gameState == 0)
+    if (gameState == GS_MAIN_MENU)
     {
         // code for main menu ui interactions that change gamestates go here
     }
     //! current working method to switch to map editor
-    else if (gameState == 1 && IsKeyPressed(KEY_F2))
+    else if (gameState == GS_MAIN_GAME && IsKeyPressed(KEY_F2))
     {
-        switchGameState(3);
+        switchGameState(GS_MAP_EDITOR);
     }
     // switch from map editor back to main game
-    else if (gameState == 3 && IsKeyPressed(KEY_F2))
+    else if (gameState == GS_MAP_EDITOR && IsKeyPressed(KEY_F2))
     {
         // open last saved map
         FILE *mapFile = fopen(MAP_FILE_PATH, "r");
         readMapFromFile(mapFile);
         fclose(mapFile);
-        switchGameState(1);
+        switchGameState(GS_MAIN_GAME);
     }
 }
 
@@ -240,14 +241,14 @@ void manageGameStates()
 void switchGameState(int state)
 {
     // main game -> any other mode
-    if (gameState == 1 && state != 1)
+    if (gameState == GS_MAIN_GAME && state != GS_MAIN_GAME)
     {
         debugView = false;
         lockBall();
     }
 
     // main game -> map editor
-    if (gameState == 1 && state == 3)
+    if (gameState == GS_MAIN_GAME && state == GS_MAP_EDITOR)
     {
         setNewGame();
     }
@@ -275,7 +276,7 @@ void updatePlayTime() {
     static double time = 0;
     const double interval = 1.0;
 
-    if (gameState != 1 || ballLockedToPaddle)
+    if (gameState != GS_MAIN_GAME || ballLockedToPaddle)
         return;
 
     time += GetFrameTime();
@@ -745,7 +746,7 @@ void unloadSprites()
 // Contains all draw calls; func called inside game loop
 void drawLoop() {
     // core game
-    if (gameState == 1) {
+    if (gameState == GS_MAIN_GAME) {
         drawPaddle();
         drawBall();
         drawBricks();
@@ -755,7 +756,7 @@ void drawLoop() {
             drawMainGameUI();
     }
     // map editor
-    else if (gameState == 3)
+    else if (gameState == GS_MAP_EDITOR)
     {
         drawMapEditor();
     }
@@ -845,7 +846,7 @@ void drawMapEditor() {
 // Toggle debug view
 void manageDebugView()
 {
-    if (gameState != 1)
+    if (gameState != GS_MAIN_GAME)
         return;
     if (IsKeyPressed(KEY_TAB))
     {
