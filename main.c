@@ -16,7 +16,7 @@
 //* Game States
 #define GS_MAIN_MENU 0      // 0 = main menu (unimplemented)
 #define GS_MAIN_GAME 1      // 1 = main game
-#define GS_GAME_END 2       // 2 = game end 
+#define GS_GAME_END 2       // 2 = game end
 #define GS_MAP_EDITOR 3     // 3 = map editor
 #define GS_HIGH_SCORES 4    // 4 = high scores (unimplemented)
 
@@ -113,7 +113,8 @@ Brick bricks[MAX_NUMBER_OF_BRICKS];
 
 // brick textures
 #define NUM_BRICK_TEXTURES 4
-Texture2D brickTextures[NUM_BRICK_TEXTURES];
+#define BRICK_TEXTURES_PATH "./assets/bricks/"
+Texture2D brickTextures[NUM_BRICK_TEXTURES + 1];    // stored as: 0 1 2 3 ... -3 -2 -1
 
 // Map Related
 #define MAP_FILE_PATH "./map.txt"
@@ -810,11 +811,21 @@ void loadSprites()
     ballImage = LoadTexture("./assets/ball.png");
     paddleImage = LoadTexture("./assets/paddles/0.png");        // base paddle
 
-    //? tbd: store brickTextures as: 1 2 3 ... -3 -2 -1
-    brickTextures[0] = LoadTexture("./assets/bricks/1.png");    // Type 1
-    brickTextures[1] = LoadTexture("./assets/bricks/2.png");    // Type 2
-    brickTextures[2] = LoadTexture("./assets/bricks/3.png");    // Type 3
-    brickTextures[3] = LoadTexture("./assets/bricks/-1.png");   // Type -1
+    // store brickTextures as: 0 1 2 3 ... -3 -2 -1
+    for (int i = MIN_BRICK_TYPE; i <= MAX_BRICK_TYPE; i++) {
+        char brickTextureFilePath[50];
+        int brickTextureIndex = 0;
+
+        if (i == 0)
+            continue;
+        else if (i > 0)
+            brickTextureIndex = i;
+        else if (i < 0)
+            brickTextureIndex = NUM_BRICK_TEXTURES + i + 1;
+
+        sprintf(brickTextureFilePath, "%s/%d.png", BRICK_TEXTURES_PATH, i);
+        brickTextures[brickTextureIndex] = LoadTexture(brickTextureFilePath);
+    }
 }
 
 // Inverse function to loadSprites(); unloads all sprites
@@ -827,7 +838,7 @@ void unloadSprites()
     UnloadTexture(ballImage);
     UnloadTexture(paddleImage);
 
-    for (int i = 0; i < NUM_BRICK_TEXTURES; i++)
+    for (int i = 0; i <= NUM_BRICK_TEXTURES; i++)
         UnloadTexture(brickTextures[i]);
 }
 
@@ -897,14 +908,10 @@ void drawBricks()
         Texture2D brickImage;
         if (bricks[i].type == 0)
             continue;
-        else if (bricks[i].type == 1)
-            brickImage = brickTextures[0];
-        else if (bricks[i].type == 2)
-            brickImage = brickTextures[1];
-        else if (bricks[i].type == 3)
-            brickImage = brickTextures[2];
-        else if (bricks[i].type == -1)
-            brickImage = brickTextures[3];
+        else if (bricks[i].type > 0)
+            brickImage = brickTextures[bricks[i].type];
+        else if (bricks[i].type < 0)
+            brickImage = brickTextures[NUM_BRICK_TEXTURES + bricks[i].type + 1];
 
         // draw brick
         DrawTextureEx(brickImage, (Vector2){bricks[i].rect.x, bricks[i].rect.y}, 0.0f, 1.0f, WHITE);
