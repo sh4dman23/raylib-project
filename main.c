@@ -22,7 +22,7 @@
 
 int gameState = GS_MAIN_GAME;
 
-// Core game statistics
+//* Core game statistics
 int playerScore = 0;
 double scoreMultiplier = 1.0;
 int playtime = 0;
@@ -31,7 +31,7 @@ const int STARTING_LIVES = 3;
 
 const int BASE_BRICK_HIT_SCORE = 50;
 
-// Core game UI
+//* Core game UI
 const double PADDING_ABOVE_UI = 20;
 const double PADDING_SIDES_UI = 20;
 
@@ -39,14 +39,14 @@ bool debugView = false;
 
 Texture2D lifeTexture;
 
-// Game End Screen
+//* Game End Screen
 Texture2D victoryImage;
 Texture2D defeatImage;
 
 #define MAX_PLAYER_NAME_LENGTH 16
 char nameInputStr[MAX_PLAYER_NAME_LENGTH + 1] = { '\0' };
 
-// Ball
+//* Ball
 typedef struct Ball
 {
     Vector2 pos;
@@ -66,7 +66,7 @@ bool ballLockedToPaddle = true;             // makes ball stick to paddle, until
 double lastBallLockTime = 0;                // in seconds
 const double BALL_OSCILLATION_FREQ = 1.0;   // oscillations per second
 
-// Paddle
+//* Paddle
 typedef struct Paddle
 {
     Rectangle rect; // posx, posy, width, height
@@ -83,7 +83,7 @@ const int SPACE_BELOW_PADDLE = 5;              // pixels below paddle
 // paddle texture
 Texture2D paddleImage;
 
-// Bricks
+//* Bricks
 #define MAX_NUMBER_OF_BRICKS 1000
 const float BRICK_WIDTH = 60;
 const float BRICK_HEIGHT = 20;
@@ -113,15 +113,26 @@ Brick bricks[MAX_NUMBER_OF_BRICKS];
 
 // brick textures
 #define NUM_BRICK_TEXTURES 4
-#define BRICK_TEXTURES_PATH "./assets/bricks/"
+#define BRICK_TEXTURES_PATH "./assets/bricks"
 Texture2D brickTextures[NUM_BRICK_TEXTURES + 1];    // stored as: 0 1 2 3 ... -3 -2 -1
 
-// Map Related
-#define MAP_FILE_PATH "./map.txt"
+//* Map
+#define MAX_NUMBER_OF_MAPS 1000
+#define MAP_FILES_PATH "./maps"
+#define MAX_MAP_NAME_LENGTH 20
+
+typedef struct Map {
+    int mapIndex;
+    char mapName[MAX_MAP_NAME_LENGTH + 1];
+} Map;
+
+int currentMap = 0;
+int numberOfMaps = 0;
+
+Map maps[MAX_NUMBER_OF_MAPS];
 
 /* Function Prototypes */
 void initializeGame();
-void initializeMap();
 
 void manageDebugView();
 void manageGameStateChanges();
@@ -161,6 +172,10 @@ double distancePointLine(Vector2 point, Vector2 lPoint1, Vector2 lPoint2);
 
 // Game Map
 void setEmptyMap();
+void initializeAllMaps();
+void initializeCurrentMap();
+void saveCurrentMap();
+void switchToMap(int mapIndex);
 void readMapFromFile(FILE *mapFile);
 void writeMapToFile(FILE *outputFile);
 
@@ -260,9 +275,7 @@ void manageGameStateChanges()
     else if (gameState == GS_MAP_EDITOR && IsKeyPressed(KEY_F2))
     {
         // open last saved map
-        FILE *mapFile = fopen(MAP_FILE_PATH, "r");
-        readMapFromFile(mapFile);
-        fclose(mapFile);
+        initializeCurrentMap();
         switchGameState(GS_MAIN_GAME);
     }
 }
@@ -297,6 +310,7 @@ void switchGameState(int state)
 // Function called at start of program to initialize everything
 void initializeGame()
 {
+    initializeAllMaps();
     setNewGame();
 }
 
@@ -304,8 +318,9 @@ void initializeGame()
 void setNewGame()
 {
     numBricks = maxBrickCols * maxBrickRows;
+    currentMap = 0;
 
-    initializeMap();
+    initializeCurrentMap();
     resetPaddle();
     resetBall();
     resetStats();
@@ -342,13 +357,59 @@ void resetStats()
     scoreMultiplier = 1.0;
 }
 
-void initializeMap()
+// Find number of maps and data related to that map
+void initializeAllMaps() {
+    currentMap = 0;
+    numberOfMaps = 0;
+
+    while (true) {
+        char mapFilePath[20] = { '\0' };
+        sprintf(mapFilePath, "%s/%d.txt", MAP_FILES_PATH, currentMap);
+
+        FILE *mapFile = fopen(mapFilePath, "r");
+        if (mapFile == NULL) {
+            break;
+        }
+
+        readMapFromFile(mapFile);
+        fclose(mapFile);
+        numberOfMaps++;
+        currentMap++;
+    }
+
+    currentMap = 0;
+}
+
+// Initializes current map
+void initializeCurrentMap()
 {
     setEmptyMap();
 
-    FILE *mapInputFile = fopen(MAP_FILE_PATH, "r");
+    char mapFilePath[20];
+    sprintf(mapFilePath, "%s/%d.txt", MAP_FILES_PATH, currentMap);
+
+    FILE *mapInputFile = fopen(mapFilePath, "r");
+
     readMapFromFile(mapInputFile);
     fclose(mapInputFile);
+}
+
+// Switch to another map
+void switchToMap(int mapIndex) {
+    currentMap = mapIndex;
+    if (currentMap >= numberOfMaps)
+        currentMap = 0;
+
+    initializeCurrentMap();
+}
+
+void saveCurrentMap() {
+    char mapFilePath[20];
+    sprintf(mapFilePath, "%s/%d.txt", MAP_FILES_PATH, currentMap);
+
+    FILE *mapFile = fopen(mapFilePath, "w");
+    writeMapToFile(mapFile);
+    fclose(mapFile);
 }
 
 // Set all bricks in map to empty bricks (type 0)
@@ -385,18 +446,36 @@ void readMapFromFile(FILE *mapFile)
     setEmptyMap();
 
     int brickRows = 0, brickCols = 0;
-    fscanf(mapFile, "%d %d", &brickRows, &brickCols);
+    fscanf(mapFile, "%d %d ", &brickRows, &brickCols);
 
+    maps[currentMap].mapIndex = currentMap;
+
+    int numBreakableBricks = 0;
     for (int i = 0; i < brickRows; i++)
     {
         for (int j = 0; j < brickCols; j++)
         {
             int brickType = 0;
-            fscanf(mapFile, "%d", &brickType);
+            fscanf(mapFile, "%d ", &brickType);
 
             bricks[i * maxBrickCols + j].type = brickType;
+
+            //* count number of bricks in level that can be broken
+            if (brickType == 1 || brickType == 2 || brickType == 3)
+                numBreakableBricks++;
         }
     }
+
+    // take map name as input
+    char mapName[MAX_MAP_NAME_LENGTH + 1] = { '\0' };
+    for (int i = 0; i < MAX_MAP_NAME_LENGTH; i++) {
+        char c;
+        if (!fscanf(mapFile, "%c", &c) || c == '\n')
+            break;
+        mapName[i] = c;
+    }
+
+    strcpy(maps[currentMap].mapName, mapName);
 }
 
 // Save map from memory to file
@@ -411,6 +490,7 @@ void writeMapToFile(FILE *outputFile)
         }
         fprintf(outputFile, "\n");
     }
+    fprintf(outputFile, "%s\n", maps[currentMap].mapName);
 }
 
 // Checks changes to map in map editor
@@ -419,16 +499,12 @@ void checkMapEdit()
     // save map
     if (IsKeyPressed(KEY_ENTER))
     {
-        FILE *mapFile = fopen(MAP_FILE_PATH, "w");
-        writeMapToFile(mapFile);
-        fclose(mapFile);
+        saveCurrentMap();
     }
     // reset all changes
     else if (IsKeyPressed(KEY_BACKSPACE))
     {
-        FILE *mapFile = fopen(MAP_FILE_PATH, "r");
-        readMapFromFile(mapFile);
-        fclose(mapFile);
+        initializeCurrentMap();
     }
     // cycle brick type right
     else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
