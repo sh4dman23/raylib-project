@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <ctype.h>
 
 #define max(a, b) ((a) > (b) ? (a) : (b))
 #define min(a, b) ((a) < (b) ? (a) : (b))
@@ -15,7 +16,7 @@
 //* Game States
 #define GS_MAIN_MENU 0      // 0 = main menu (unimplemented)
 #define GS_MAIN_GAME 1      // 1 = main game
-#define GS_GAME_END 2       // 2 = game end (unimplemented)
+#define GS_GAME_END 2       // 2 = game end 
 #define GS_MAP_EDITOR 3     // 3 = map editor
 #define GS_HIGH_SCORES 4    // 4 = high scores (unimplemented)
 
@@ -37,6 +38,13 @@ const double PADDING_SIDES_UI = 20;
 bool debugView = false;
 
 Texture2D lifeTexture;
+
+// Game End Screen
+Texture2D victoryImage;
+Texture2D defeatImage;
+
+#define MAX_PLAYER_NAME_LENGTH 16
+char nameInputStr[MAX_PLAYER_NAME_LENGTH + 1] = { '\0' };
 
 // Ball
 typedef struct Ball
@@ -115,8 +123,15 @@ void initializeGame();
 void initializeMap();
 
 void manageDebugView();
-void manageGameStates();
+void manageGameStateChanges();
 void switchGameState(int state);
+
+// Updates
+void updateLoop();
+
+// Non-core game interactions
+void manageGameEndUserInput();
+void resetAllInput();
 
 // Core Game Logic
 void setNewGame();
@@ -162,6 +177,7 @@ void drawBall();
 void drawPaddle();
 void drawBricks();
 void drawMapEditor();
+void drawGameEnd();
 void drawDebugView();
 
 int main(void)
@@ -179,28 +195,10 @@ int main(void)
     while (!WindowShouldClose())
     {
         manageDebugView();
-        manageGameStates();
+        manageGameStateChanges();
 
-        //* updates
-        // core game
-        if (gameState == GS_MAIN_GAME)
-        {
-            updatePlayTime();
-
-            updatePaddle();
-            updateBall();
-
-            // collisions
-            checkAllCollisions();
-
-            // check death
-            checkGameEnd();
-        }
-        // map editor
-        else if (gameState == GS_MAIN_MENU)
-        {
-            checkMapEdit();
-        }
+        // updates
+        updateLoop();
 
         // draw
         BeginDrawing();
@@ -214,13 +212,44 @@ int main(void)
     return 0;
 }
 
+// Manage all updates based on game state
+void updateLoop() {
+    // core game
+    if (gameState == GS_MAIN_GAME)
+    {
+        updatePlayTime();
+
+        updatePaddle();
+        updateBall();
+
+        // collisions
+        checkAllCollisions();
+
+        // check whether lives end or breakable bricks are all broken
+        checkGameEnd();
+    }
+    // end game screen
+    else if (gameState == GS_GAME_END) {
+        manageGameEndUserInput();
+    }
+    // map editor
+    else if (gameState == GS_MAP_EDITOR)
+    {
+        checkMapEdit();
+    }
+}
+
 // Manage game state changes due to ingame user interaction
-void manageGameStates()
+void manageGameStateChanges()
 {
     if (gameState == GS_MAIN_MENU)
     {
-        // code for main menu ui interactions that change gamestates go here
+        //? (tbd) code for main menu ui interactions that change gamestates go here
+
+        //? currently, just default switch to main game if in main menu
+        switchGameState(GS_MAIN_GAME);
     }
+
     //! current working method to switch to map editor
     else if (gameState == GS_MAIN_GAME && IsKeyPressed(KEY_F2))
     {
@@ -240,8 +269,11 @@ void manageGameStates()
 // Switches game states, and does necessary changes
 void switchGameState(int state)
 {
+    if (gameState == state)
+        return;
+
     // main game -> any other mode
-    if (gameState == GS_MAIN_GAME && state != GS_MAIN_GAME)
+    if (gameState == GS_MAIN_GAME)
     {
         debugView = false;
         lockBall();
@@ -253,14 +285,21 @@ void switchGameState(int state)
         setNewGame();
     }
 
+    // end game -> any other mode (only main menu accessible)
+    if (gameState == GS_GAME_END) {
+        setNewGame();
+    }
+
     gameState = state;
 }
 
+// Function called at start of program to initialize everything
 void initializeGame()
 {
     setNewGame();
 }
 
+// Reset everything in memory to prepare for new game
 void setNewGame()
 {
     numBricks = maxBrickCols * maxBrickRows;
@@ -269,10 +308,12 @@ void setNewGame()
     resetPaddle();
     resetBall();
     resetStats();
+    resetAllInput();
 }
 
 // Update playtime variable every second
-void updatePlayTime() {
+void updatePlayTime()
+{
     static double time = 0;
     const double interval = 1.0;
 
@@ -284,6 +325,12 @@ void updatePlayTime() {
         playtime++;
         time = 0;
     }
+}
+
+// Resets everything related to player input in memory
+void resetAllInput()
+{
+    sprintf(nameInputStr, "");
 }
 
 void resetStats()
@@ -697,10 +744,42 @@ void increaseScore(int change)
     playerScore += change * scoreMultiplier;
 }
 
-// Check whether conditions for game end are met (lives = 0)
-// and transition to end game state (gameState = 2)
+// Check whether conditions for game end are met
 void checkGameEnd() {
-    //? to be implemented
+    // death
+    if (lives <= 0) {
+        lockBall();
+        switchGameState(GS_GAME_END);
+    }
+    //? implement change to next map or show victory screen
+}
+
+// Manage user name input by keyboard
+void manageGameEndUserInput() {
+    char ch = GetCharPressed();
+
+    // add character to name
+    if (isalnum(ch) && strlen(nameInputStr) < MAX_PLAYER_NAME_LENGTH) {
+        strncat(nameInputStr, &ch, 1);
+    }
+
+    // backspace
+    else if (IsKeyPressed(KEY_BACKSPACE) && strlen(nameInputStr) > 0) {
+        nameInputStr[strlen(nameInputStr) - 1] = '\0';
+    }
+
+    // save score
+    else if (IsKeyPressed(KEY_ENTER)) {
+        //! (tbd) store high score
+        setNewGame();
+        switchGameState(GS_MAIN_MENU);
+    }
+
+    // delete score (no save)
+    else if (IsKeyPressed(KEY_ESCAPE)) {
+        setNewGame();
+        switchGameState(GS_MAIN_MENU);
+    }
 }
 
 // Calculate perpendicular distance between point and a straight line
@@ -724,9 +803,14 @@ double distancePointLine(Vector2 point, Vector2 lPoint1, Vector2 lPoint2)
 // Load all textures
 void loadSprites()
 {
-    lifeTexture = LoadTexture("./assets/life.png");
+    victoryImage = LoadTexture("./assets/ui/victory.png");
+    defeatImage = LoadTexture("./assets/ui/defeat.png");
+
+    lifeTexture = LoadTexture("./assets/ui/life.png");
     ballImage = LoadTexture("./assets/ball.png");
     paddleImage = LoadTexture("./assets/paddles/0.png");        // base paddle
+
+    //? tbd: store brickTextures as: 1 2 3 ... -3 -2 -1
     brickTextures[0] = LoadTexture("./assets/bricks/1.png");    // Type 1
     brickTextures[1] = LoadTexture("./assets/bricks/2.png");    // Type 2
     brickTextures[2] = LoadTexture("./assets/bricks/3.png");    // Type 3
@@ -736,9 +820,13 @@ void loadSprites()
 // Inverse function to loadSprites(); unloads all sprites
 void unloadSprites()
 {
+    UnloadTexture(victoryImage);
+    UnloadTexture(defeatImage);
+
     UnloadTexture(lifeTexture);
     UnloadTexture(ballImage);
     UnloadTexture(paddleImage);
+
     for (int i = 0; i < NUM_BRICK_TEXTURES; i++)
         UnloadTexture(brickTextures[i]);
 }
@@ -754,6 +842,10 @@ void drawLoop() {
             drawDebugView();
         else
             drawMainGameUI();
+    }
+    // game end
+    else if (gameState == GS_GAME_END) {
+        drawGameEnd();
     }
     // map editor
     else if (gameState == GS_MAP_EDITOR)
@@ -841,6 +933,56 @@ void drawMapEditor() {
     drawBricks();
     for (int i = 0; i < numBricks; i++)
         DrawRectangleLinesEx(bricks[i].rect, 1, RAYWHITE);
+}
+
+void drawGameEnd()
+{
+    const int fontSize = 18;
+
+    double px = 0, py = PADDING_ABOVE_MAP;
+    Texture2D statusImage;
+
+    // final map finished
+    if (lives > 0)
+        statusImage = victoryImage;
+    // lives ran out
+    else
+        statusImage = defeatImage;
+
+    DrawTexture(statusImage, (GetScreenWidth() - statusImage.width) / 2, py, WHITE);
+    py += 25 + statusImage.height;
+
+    // score
+    char scoreText[50];
+    sprintf(scoreText, "Score: %d", playerScore);
+    DrawText(scoreText, (GetScreenWidth() - MeasureText(scoreText, fontSize)) / 2, py, fontSize, RAYWHITE);
+    py += fontSize * 1.5;
+
+    // time played
+    char timeText[50];
+    sprintf(timeText, "Time Played: ");
+    if (playtime / 60 > 0) {
+        char minText[20];
+        sprintf(minText, "%d minutes, ", playtime / 60);
+        strcat(timeText, minText);
+    }
+    char secText[20];
+    sprintf(secText, "%d seconds", playtime % 60);
+    strcat(timeText, secText);
+
+    DrawText(timeText, (GetScreenWidth() - MeasureText(timeText, fontSize)) / 2, py, fontSize, WHITE);
+    py += fontSize * 2;
+
+    // show name prompt
+    char *namePromptText = "Enter your name to save score: ";
+    DrawText(namePromptText, (GetScreenWidth() - MeasureText(namePromptText, fontSize)) / 2, py, fontSize, WHITE);
+    py += fontSize * 1.4;
+
+    // show currently entered name
+    char nameDisplayStr[MAX_PLAYER_NAME_LENGTH + 2];
+    sprintf(nameDisplayStr, "%s%c", nameInputStr, time(NULL) % 2 ? '_' : ' ');
+    DrawText(nameDisplayStr, (GetScreenWidth() - MeasureText(nameDisplayStr, fontSize)) / 2, py, fontSize, WHITE);
+    py += fontSize * 1.4;
 }
 
 // Toggle debug view
