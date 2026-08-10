@@ -20,7 +20,7 @@
 #define GS_MAP_EDITOR 3     // 3 = map editor
 #define GS_HIGH_SCORES 4    // 4 = high scores (unimplemented)
 
-int gameState = GS_MAIN_GAME;
+int gameState = GS_MAIN_MENU;
 
 //* Core game statistics
 int playerScore = 0;
@@ -119,17 +119,14 @@ Texture2D brickTextures[NUM_BRICK_TEXTURES + 1];    // stored as: 0 1 2 3 ... -3
 //* Map
 #define MAX_NUMBER_OF_MAPS 1000
 #define MAP_FILES_PATH "./maps"
-#define MAX_MAP_NAME_LENGTH 20
-
-typedef struct Map {
-    int mapIndex;
-    char mapName[MAX_MAP_NAME_LENGTH + 1];
-} Map;
 
 int currentMap = 0;
 int numberOfMaps = 0;
 
-Map maps[MAX_NUMBER_OF_MAPS];
+//* Map Editor
+#define NUM_MAP_EDITOR_BUTTONS 5
+Rectangle mapEditorButtons[NUM_MAP_EDITOR_BUTTONS];
+Texture2D mapEditorButtonTextures[NUM_MAP_EDITOR_BUTTONS];
 
 /* Function Prototypes */
 void initializeGame();
@@ -180,6 +177,9 @@ void readMapFromFile(FILE *mapFile);
 void writeMapToFile(FILE *outputFile);
 
 // Map Editor
+void addNewMap();
+void deleteCurrentMap();
+void setMapEditor();
 void checkMapEdit();
 
 // Sprites
@@ -304,6 +304,12 @@ void switchGameState(int state)
         setNewGame();
     }
 
+    // map editor -> any other mode
+    if (gameState == GS_MAP_EDITOR) {
+        // switch to first map
+        switchToMap(0);
+    }
+
     gameState = state;
 }
 
@@ -312,6 +318,7 @@ void initializeGame()
 {
     initializeAllMaps();
     setNewGame();
+    setMapEditor();
 }
 
 // Reset everything in memory to prepare for new game
@@ -396,9 +403,12 @@ void initializeCurrentMap()
 
 // Switch to another map
 void switchToMap(int mapIndex) {
-    currentMap = mapIndex;
-    if (currentMap >= numberOfMaps)
-        currentMap = 0;
+    if (mapIndex < 0)
+        currentMap = numberOfMaps + mapIndex % numberOfMaps;
+    else
+        currentMap = mapIndex;
+
+    currentMap %= numberOfMaps;
 
     initializeCurrentMap();
 }
@@ -410,6 +420,45 @@ void saveCurrentMap() {
     FILE *mapFile = fopen(mapFilePath, "w");
     writeMapToFile(mapFile);
     fclose(mapFile);
+}
+
+// Add new map file
+void addNewMap() {
+    if (numberOfMaps == MAX_NUMBER_OF_MAPS)
+        return;
+    numberOfMaps++;
+    currentMap = numberOfMaps - 1;
+    setEmptyMap();
+    saveCurrentMap();
+}
+
+// Delete current map (if number of maps remaining > 1)
+void deleteCurrentMap() {
+    if (numberOfMaps <= 1)
+        return;
+
+    int lastMap = currentMap;
+    while (currentMap < numberOfMaps - 1) {
+        // copy (i + 1)th map to the ith map
+        switchToMap(currentMap + 1);
+        currentMap--;
+        saveCurrentMap();
+        currentMap++;
+    }
+    numberOfMaps--;
+
+    char mapFilePath[20];
+    sprintf(mapFilePath, "%s/%d.txt", MAP_FILES_PATH, currentMap);
+
+    // delete extra file
+    FileRemove(mapFilePath);
+
+    // switch to map originally succeeding the deleted map
+    if (lastMap < numberOfMaps)
+        currentMap = lastMap;
+    else
+        currentMap = numberOfMaps - 1;
+    switchToMap(currentMap);
 }
 
 // Set all bricks in map to empty bricks (type 0)
@@ -448,8 +497,6 @@ void readMapFromFile(FILE *mapFile)
     int brickRows = 0, brickCols = 0;
     fscanf(mapFile, "%d %d ", &brickRows, &brickCols);
 
-    maps[currentMap].mapIndex = currentMap;
-
     int numBreakableBricks = 0;
     for (int i = 0; i < brickRows; i++)
     {
@@ -465,17 +512,6 @@ void readMapFromFile(FILE *mapFile)
                 numBreakableBricks++;
         }
     }
-
-    // take map name as input
-    char mapName[MAX_MAP_NAME_LENGTH + 1] = { '\0' };
-    for (int i = 0; i < MAX_MAP_NAME_LENGTH; i++) {
-        char c;
-        if (!fscanf(mapFile, "%c", &c) || c == '\n')
-            break;
-        mapName[i] = c;
-    }
-
-    strcpy(maps[currentMap].mapName, mapName);
 }
 
 // Save map from memory to file
@@ -490,26 +526,28 @@ void writeMapToFile(FILE *outputFile)
         }
         fprintf(outputFile, "\n");
     }
-    fprintf(outputFile, "%s\n", maps[currentMap].mapName);
 }
 
 // Checks changes to map in map editor
 void checkMapEdit()
 {
+    Vector2 mousePos = GetMousePosition();
+
     // save map
     if (IsKeyPressed(KEY_ENTER))
     {
         saveCurrentMap();
     }
+
     // reset all changes
     else if (IsKeyPressed(KEY_BACKSPACE))
     {
         initializeCurrentMap();
     }
+
     // cycle brick type right
     else if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
     {
-        Vector2 mousePos = GetMousePosition();
         for (int i = 0; i < maxBrickCols * maxBrickRows; i++)
         {
             if (CheckCollisionPointRec(mousePos, bricks[i].rect))
@@ -520,10 +558,10 @@ void checkMapEdit()
             }
         }
     }
+
     // cycle brick type left
     else if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT))
     {
-        Vector2 mousePos = GetMousePosition();
         for (int i = 0; i < maxBrickCols * maxBrickRows; i++)
         {
             if (CheckCollisionPointRec(mousePos, bricks[i].rect))
@@ -534,10 +572,10 @@ void checkMapEdit()
             }
         }
     }
+
     // set empty brick
     else if (IsMouseButtonDown(MOUSE_BUTTON_MIDDLE))
     {
-        Vector2 mousePos = GetMousePosition();
         for (int i = 0; i < maxBrickCols * maxBrickRows; i++)
         {
             if (CheckCollisionPointRec(mousePos, bricks[i].rect))
@@ -545,6 +583,37 @@ void checkMapEdit()
                 bricks[i].type = 0;
             }
         }
+    }
+
+    // interaction with map editor buttons
+    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+        // circle left
+        if (CheckCollisionPointRec(mousePos, mapEditorButtons[1])) {
+            switchToMap(currentMap - 1);
+        }
+
+        // circle right
+        else if (CheckCollisionPointRec(mousePos, mapEditorButtons[2])) {
+            switchToMap(currentMap + 1);
+        }
+
+        // add new map
+        else if (CheckCollisionPointRec(mousePos, mapEditorButtons[3])) {
+            addNewMap();
+        }
+
+        // delete current map
+        else if (CheckCollisionPointRec(mousePos, mapEditorButtons[4])) {
+            deleteCurrentMap();
+        }
+    }
+
+    // arrow keys to change map
+    if (IsKeyPressed(KEY_LEFT)) {
+        switchToMap(currentMap - 1);
+    }
+    else if (IsKeyPressed(KEY_RIGHT)) {
+        switchToMap(currentMap + 1);
     }
 }
 
@@ -880,6 +949,11 @@ double distancePointLine(Vector2 point, Vector2 lPoint1, Vector2 lPoint2)
 // Load all textures
 void loadSprites()
 {
+    mapEditorButtonTextures[1] = LoadTexture("./assets/ui/larrow.png");
+    mapEditorButtonTextures[2] = LoadTexture("./assets/ui/rarrow.png");
+    mapEditorButtonTextures[3] = LoadTexture("./assets/ui/plus.png");
+    mapEditorButtonTextures[4] = LoadTexture("./assets/ui/delete.png");
+
     victoryImage = LoadTexture("./assets/ui/victory.png");
     defeatImage = LoadTexture("./assets/ui/defeat.png");
 
@@ -907,6 +981,9 @@ void loadSprites()
 // Inverse function to loadSprites(); unloads all sprites
 void unloadSprites()
 {
+    for (int i = 0; i < NUM_MAP_EDITOR_BUTTONS; i++)
+        UnloadTexture(mapEditorButtonTextures[i]);
+
     UnloadTexture(victoryImage);
     UnloadTexture(defeatImage);
 
@@ -994,8 +1071,52 @@ void drawBricks()
     }
 }
 
+// Setup buttons in map editor
+void setMapEditor() {
+    int px = 0, py = 10;
+
+    const int fontSize = 16;
+    const Vector2 mapNameBoxDimensions = {150, fontSize * 2};
+    const Vector2 otherBoxDimensions = {fontSize * 2, fontSize * 2};
+    const int spacing = 5;
+
+    px = (GetScreenWidth() - mapNameBoxDimensions.x - otherBoxDimensions.x * 3 - spacing * 3) / 2;
+
+    // map name box
+    mapEditorButtons[0] = (Rectangle) { px, py, mapNameBoxDimensions.x, mapNameBoxDimensions.y };
+    px += mapNameBoxDimensions.x + spacing;
+
+    // other 4
+    for (int i = 0; i < 4; i++) {
+        mapEditorButtons[i + 1] = (Rectangle) { px + i * otherBoxDimensions.x + i * spacing, py, otherBoxDimensions.x, otherBoxDimensions.y };
+    }
+}
+
 // Draw map editor on screen
-void drawMapEditor() {
+void drawMapEditor()
+{
+    const int fontSize = 16;
+
+    // map name
+    DrawRectangleLinesEx(mapEditorButtons[0], 1, WHITE);
+
+    char mapText[20];
+    sprintf(mapText, "Map %d", currentMap + 1);
+    DrawText(mapText, mapEditorButtons[0].x + 10, mapEditorButtons[0].y + (mapEditorButtons[0].height - fontSize) / 2, fontSize, WHITE);
+
+
+    for (int i = 1; i <= 4; i++) {
+        DrawRectangleLinesEx(mapEditorButtons[i], 1, WHITE);
+
+        DrawTexturePro(
+            mapEditorButtonTextures[i],
+            (Rectangle) {0, 0, mapEditorButtonTextures[i].width, mapEditorButtonTextures[i].height},
+            (Rectangle) {mapEditorButtons[i].x + (mapEditorButtons[i].width - fontSize) / 2, mapEditorButtons[i].y + fontSize / 2, fontSize, fontSize},
+            (Vector2) {0, 0},
+            0.0f,
+            ((i == 4 && numberOfMaps <= 1 ) || (i == 3 && numberOfMaps >= MAX_NUMBER_OF_MAPS)) ? GRAY : WHITE
+        );
+    }
 
     // row and column number
     for (int i = 0; i < maxBrickCols || i < maxBrickRows; i++) {
