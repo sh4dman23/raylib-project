@@ -1073,7 +1073,7 @@ void drawBricks()
 
 // Setup buttons in map editor
 void setMapEditor() {
-    int px = 0, py = 10;
+    int px = 0, py = 20;
 
     const int fontSize = 16;
     const Vector2 mapNameBoxDimensions = {150, fontSize * 2};
@@ -1097,14 +1097,14 @@ void drawMapEditor()
 {
     const int fontSize = 16;
 
-    // map name
+    // box for showing # of current selected map
     DrawRectangleLinesEx(mapEditorButtons[0], 1, WHITE);
 
     char mapText[20];
     sprintf(mapText, "Map %d", currentMap + 1);
     DrawText(mapText, mapEditorButtons[0].x + 10, mapEditorButtons[0].y + (mapEditorButtons[0].height - fontSize) / 2, fontSize, WHITE);
 
-
+    // buttons to change current selected map
     for (int i = 1; i <= 4; i++) {
         DrawRectangleLinesEx(mapEditorButtons[i], 1, WHITE);
 
@@ -1118,25 +1118,58 @@ void drawMapEditor()
         );
     }
 
-    // row and column number
+    // color based on whether mouse points to corresponding brick
+    Color notHighlighted = (Color) {255, 255, 255, .35 * 255}, highlighted = RAYWHITE;
+    Vector2 mousePos = GetMousePosition();
+
+    // row and column numbers
     for (int i = 0; i < maxBrickCols || i < maxBrickRows; i++) {
         char numText[20];
         sprintf(numText, "%d", i + 1);
         Vector2 textSize = MeasureTextEx(GetFontDefault(), numText, 15, 0);
+
+        // check if mouse is on ANY brick at all
+        bool mouseOnBricks = CheckCollisionPointRec(mousePos, (Rectangle) {
+            bricks[0].rect.x,
+            bricks[0].rect.y,
+            maxBrickCols * BRICK_WIDTH,
+            maxBrickRows * BRICK_HEIGHT
+        });
+
+        Color numColor;
         if (i < maxBrickCols){
-            DrawText(numText, bricks[i].rect.x + (BRICK_WIDTH - textSize.x) / 2, bricks[i].rect.y - textSize.y - 5, 15, RAYWHITE);
-            DrawText(numText, bricks[i].rect.x + (BRICK_WIDTH - textSize.x) / 2, bricks[maxBrickRows * maxBrickCols - 1].rect.y + BRICK_HEIGHT + 5, 15, RAYWHITE);
+            if (mousePos.x >= bricks[i].rect.x && mousePos.x <= bricks[i].rect.x + BRICK_WIDTH && mouseOnBricks)
+                numColor = highlighted;
+            else
+                numColor = notHighlighted;
+
+            DrawText(numText, bricks[i].rect.x + (BRICK_WIDTH - textSize.x) / 2, bricks[i].rect.y - textSize.y - 5, 15, numColor);
+            DrawText(numText, bricks[i].rect.x + (BRICK_WIDTH - textSize.x) / 2, bricks[maxBrickRows * maxBrickCols - 1].rect.y + BRICK_HEIGHT + 5, 15, numColor);
         }
+
         if (i < maxBrickRows) {
-            DrawText(numText, bricks[i * maxBrickCols].rect.x - textSize.x - 10, bricks[i * maxBrickCols].rect.y + (BRICK_HEIGHT - 15) / 2, 15, RAYWHITE);
-            DrawText(numText, bricks[(i + 1) * maxBrickCols - 1].rect.x + BRICK_WIDTH + 10, bricks[(i + 1) * maxBrickCols - 1].rect.y + (BRICK_HEIGHT - 15) / 2, 15, RAYWHITE);
+            if (mousePos.y >= bricks[i * maxBrickCols].rect.y && mousePos.y <= bricks[i * maxBrickCols].rect.y + BRICK_HEIGHT && mouseOnBricks)
+                numColor = highlighted;
+            else
+                numColor = notHighlighted;
+
+            DrawText(numText, bricks[i * maxBrickCols].rect.x - textSize.x - 10, bricks[i * maxBrickCols].rect.y + (BRICK_HEIGHT - 15) / 2, 15, numColor);
+            DrawText(numText, bricks[(i + 1) * maxBrickCols - 1].rect.x + BRICK_WIDTH + 10, bricks[(i + 1) * maxBrickCols - 1].rect.y + (BRICK_HEIGHT - 15) / 2, 15, numColor);
         }
     }
 
-    // bricks & outlines
+    // bricks
     drawBricks();
-    for (int i = 0; i < numBricks; i++)
-        DrawRectangleLinesEx(bricks[i].rect, 1, RAYWHITE);
+
+    // brick outlines
+    for (int i = 0; i < numBricks; i++) {
+        // check if mouse inside brick
+        if (CheckCollisionPointRec(mousePos, bricks[i].rect))
+            DrawRectangleLinesEx(bricks[i].rect, 2, highlighted);
+        else
+            DrawRectangleLinesEx(bricks[i].rect, 1, notHighlighted);
+
+    }
 }
 
 void drawGameEnd()
