@@ -14,13 +14,24 @@
 #define GAME_WINDOW_TITLE "DXBall"
 
 //* Game States
-#define GS_MAIN_MENU 0      // 0 = main menu (unimplemented)
-#define GS_MAIN_GAME 1      // 1 = main game
-#define GS_GAME_END 2       // 2 = game end
-#define GS_MAP_EDITOR 3     // 3 = map editor
-#define GS_HIGH_SCORES 4    // 4 = high scores (unimplemented)
+#define GS_MAIN_MENU 0   // 0 = main menu (unimplemented)
+#define GS_MAIN_GAME 1   // 1 = main game
+#define GS_GAME_END 2    // 2 = game end
+#define GS_MAP_EDITOR 3  // 3 = map editor
+#define GS_HIGH_SCORES 4 // 4 = high scores (unimplemented)
+
+// Main menu
+#define MAIN_MENU_LOGO_START 1
+#define MAIN_MENU_LOGO_END 31
+#define MAIN_MENU_BUTTON_WIDTH 200
+#define MAIN_MENU_BUTTON_HEIGHT 40
+#define MAIN_MENU_TEXTURES_PATH "./assets/main_menu/"
 
 int gameState = GS_MAIN_MENU;
+bool exitGame = false;
+
+// Texture for main menu
+Texture2D mainMenuLogo[MAIN_MENU_LOGO_END];
 
 //* Core game statistics
 int playerScore = 0;
@@ -44,7 +55,7 @@ Texture2D victoryImage;
 Texture2D defeatImage;
 
 #define MAX_PLAYER_NAME_LENGTH 16
-char nameInputStr[MAX_PLAYER_NAME_LENGTH + 1] = { '\0' };
+char nameInputStr[MAX_PLAYER_NAME_LENGTH + 1] = {'\0'};
 
 //* Ball
 typedef struct Ball
@@ -62,9 +73,9 @@ const Vector2 INITIAL_BALL_SPEED = (Vector2){300.0, -350};
 
 const double BASE_BALL_RADIUS = 5.0;
 
-bool ballLockedToPaddle = true;             // makes ball stick to paddle, until player presses space
-double lastBallLockTime = 0;                // in seconds
-const double BALL_OSCILLATION_FREQ = 1.0;   // oscillations per second
+bool ballLockedToPaddle = true;           // makes ball stick to paddle, until player presses space
+double lastBallLockTime = 0;              // in seconds
+const double BALL_OSCILLATION_FREQ = 1.0; // oscillations per second
 
 //* Paddle
 typedef struct Paddle
@@ -108,13 +119,14 @@ typedef struct Brick
 // required for map editor brick changes
 const int MAX_BRICK_TYPE = 3;
 const int MIN_BRICK_TYPE = -1;
+bool justMouseClicked = false;
 
 Brick bricks[MAX_NUMBER_OF_BRICKS];
 
 // brick textures
 #define NUM_BRICK_TEXTURES 4
 #define BRICK_TEXTURES_PATH "./assets/bricks"
-Texture2D brickTextures[NUM_BRICK_TEXTURES + 1];    // stored as: 0 1 2 3 ... -3 -2 -1
+Texture2D brickTextures[NUM_BRICK_TEXTURES + 1]; // stored as: 0 1 2 3 ... -3 -2 -1
 
 //* Map
 #define MAX_NUMBER_OF_MAPS 1000
@@ -143,6 +155,16 @@ void initializeGame();
 void manageDebugView();
 void manageGameStateChanges();
 void switchGameState(int state);
+
+// Main Menu
+void mainMenuScreen();
+void createMainMenuButtons();
+void checkMainMenuButtonClick(Vector2 mousePos);
+
+// Main Menu
+void mainMenuScreen();
+void createMainMenuButtons();
+void checkMainMenuButtonClick(Vector2 mousePos);
 
 // General updates
 void updateLoop();
@@ -226,7 +248,7 @@ int main(void)
     // make it so, esc key doesn't close the game
     SetExitKey(KEY_NULL);
 
-    while (!WindowShouldClose())
+    while (!WindowShouldClose() && !exitGame)
     {
         manageDebugView();
         manageGameStateChanges();
@@ -249,8 +271,20 @@ int main(void)
     return 0;
 }
 
+void mainMenuScreen()
+{
+    if (gameState != GS_MAIN_MENU)
+        return;
+
+    ClearBackground(BLACK);
+    Vector2 mousePositionMainMenu = GetMousePosition();
+    createMainMenuButtons();
+    checkMainMenuButtonClick(mousePositionMainMenu);
+}
+
 // Manage all updates based on game state
-void updateLoop() {
+void updateLoop()
+{
     // core game
     if (gameState == GS_MAIN_GAME)
     {
@@ -267,7 +301,8 @@ void updateLoop() {
     }
 
     // end game screen
-    else if (gameState == GS_GAME_END) {
+    else if (gameState == GS_GAME_END)
+    {
         manageGameEndUserInput();
     }
 
@@ -283,10 +318,7 @@ void manageGameStateChanges()
 {
     if (gameState == GS_MAIN_MENU)
     {
-        //? (tbd) code for main menu ui interactions that change gamestates go here
-
-        //? currently, just default switch to main game if in main menu
-        switchGameState(GS_MAIN_GAME);
+        mainMenuScreen();
     }
 
     //! current working method to switch to map editor
@@ -323,17 +355,67 @@ void switchGameState(int state)
     }
 
     // end game -> any other mode (only main menu accessible)
-    if (gameState == GS_GAME_END) {
+    if (gameState == GS_GAME_END)
+    {
         setNewGame();
     }
 
     // map editor -> any other mode
-    if (gameState == GS_MAP_EDITOR) {
+    if (gameState == GS_MAP_EDITOR)
+    {
         // switch to first map
         switchToMap(0);
     }
 
     gameState = state;
+}
+
+// main menu buttons for changing states
+void createMainMenuButtons()
+{
+    const int buttonTextFontSize = 22;
+    Rectangle mainMenuButtonRect = {(WINDOW_WIDTH - MAIN_MENU_BUTTON_WIDTH) / 2, WINDOW_HEIGHT / 2 - MAIN_MENU_BUTTON_HEIGHT, MAIN_MENU_BUTTON_WIDTH, MAIN_MENU_BUTTON_HEIGHT};
+    for (int i = 0; i < 3; i++)
+    {
+        char *menuButtonText;
+        switch (i)
+        {
+        case 0:
+            menuButtonText = "New Game";
+            break;
+        case 1:
+            menuButtonText = "Map Maker";
+            break;
+        case 2:
+            menuButtonText = "Exit";
+            break;
+        }
+        int textWidth = MeasureText(menuButtonText, buttonTextFontSize);
+        // DrawRectangleRec(mainMenuButtonRect, RED);
+        DrawText(menuButtonText, mainMenuButtonRect.x + (mainMenuButtonRect.width - textWidth) / 2, mainMenuButtonRect.y + (mainMenuButtonRect.height - buttonTextFontSize) / 2, buttonTextFontSize, WHITE);
+        mainMenuButtonRect.y += (10 + mainMenuButtonRect.height);
+    }
+}
+
+// checking which button was clicked
+void checkMainMenuButtonClick(Vector2 mousePos)
+{
+    int x = (WINDOW_WIDTH - MAIN_MENU_BUTTON_WIDTH) / 2;
+    int y = WINDOW_HEIGHT / 2 - MAIN_MENU_BUTTON_HEIGHT;
+    bool insideRectX_Axis = mousePos.x >= x && mousePos.x <= (x + MAIN_MENU_BUTTON_WIDTH);
+    if (insideRectX_Axis && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && (mousePos.y >= y && mousePos.y <= y + MAIN_MENU_BUTTON_HEIGHT))
+    {
+        switchGameState(GS_MAIN_GAME);
+    }
+    else if (insideRectX_Axis && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && (mousePos.y >= y + MAIN_MENU_BUTTON_HEIGHT * 1 + 10 * 1 && mousePos.y <= y + MAIN_MENU_BUTTON_HEIGHT * 2 + 10 * 1))
+    {
+        justMouseClicked = true;
+        switchGameState(GS_MAP_EDITOR);
+    }
+    else if (insideRectX_Axis && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && (mousePos.y >= y + MAIN_MENU_BUTTON_HEIGHT * 2 + 10 * 2 && mousePos.y <= y + MAIN_MENU_BUTTON_HEIGHT * 3 + 10 * 2))
+    {
+        exitGame = true;
+    }
 }
 
 // Function called at start of program to initialize everything
@@ -370,7 +452,8 @@ void updatePlayTime()
         return;
 
     time += GetFrameTime();
-    if (time >= interval) {
+    if (time >= interval)
+    {
         playtime++;
         time = 0;
     }
@@ -391,16 +474,19 @@ void resetStats()
 }
 
 // Find number of maps and data related to that map
-void initializeAllMaps() {
+void initializeAllMaps()
+{
     currentMap = 0;
     numberOfMaps = 0;
 
-    while (true) {
-        char mapFilePath[20] = { '\0' };
+    while (true)
+    {
+        char mapFilePath[20] = {'\0'};
         sprintf(mapFilePath, "%s/%d.txt", MAP_FILES_PATH, currentMap);
 
         FILE *mapFile = fopen(mapFilePath, "r");
-        if (mapFile == NULL) {
+        if (mapFile == NULL)
+        {
             break;
         }
 
@@ -428,7 +514,8 @@ void initializeCurrentMap()
 }
 
 // Switch to another map
-void switchToMap(int mapIndex) {
+void switchToMap(int mapIndex)
+{
     if (mapIndex < 0)
         currentMap = numberOfMaps + mapIndex % numberOfMaps;
     else
@@ -439,7 +526,8 @@ void switchToMap(int mapIndex) {
     initializeCurrentMap();
 }
 
-void saveCurrentMap() {
+void saveCurrentMap()
+{
     char mapFilePath[20];
     sprintf(mapFilePath, "%s/%d.txt", MAP_FILES_PATH, currentMap);
 
@@ -449,7 +537,8 @@ void saveCurrentMap() {
 }
 
 // Add new map file
-void addNewMap() {
+void addNewMap()
+{
     if (numberOfMaps == MAX_NUMBER_OF_MAPS)
         return;
     numberOfMaps++;
@@ -459,12 +548,14 @@ void addNewMap() {
 }
 
 // Delete current map (if number of maps remaining > 1)
-void deleteCurrentMap() {
+void deleteCurrentMap()
+{
     if (numberOfMaps <= 1)
         return;
 
     int lastMap = currentMap;
-    while (currentMap < numberOfMaps - 1) {
+    while (currentMap < numberOfMaps - 1)
+    {
         // copy (i + 1)th map to the ith map
         switchToMap(currentMap + 1);
         currentMap--;
@@ -498,13 +589,12 @@ void setEmptyMap()
         for (int j = 0; j < maxBrickCols; j++)
         {
             bricks[i * maxBrickCols + j] = (Brick){
-                (Rectangle) {
+                (Rectangle){
                     px,
                     py,
                     BRICK_WIDTH,
-                    BRICK_HEIGHT
-                },
-                0   // type 0 = empty brick
+                    BRICK_HEIGHT},
+                0 // type 0 = empty brick
             };
 
             px += BRICK_WIDTH;
@@ -557,6 +647,12 @@ void writeMapToFile(FILE *outputFile)
 // Checks changes to map in map editor
 void checkMapEdit()
 {
+    //* So that the map doesn't update automatically
+    if (IsMouseButtonUp(MOUSE_BUTTON_LEFT))
+        justMouseClicked = false;
+    if (justMouseClicked)
+        return;
+
     Vector2 mousePos = GetMousePosition();
 
     // save map
@@ -612,33 +708,40 @@ void checkMapEdit()
     }
 
     // interaction with map editor buttons
-    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
+    {
         // circle left
-        if (CheckCollisionPointRec(mousePos, mapEditorButtons[1])) {
+        if (CheckCollisionPointRec(mousePos, mapEditorButtons[1]))
+        {
             switchToMap(currentMap - 1);
         }
 
         // circle right
-        else if (CheckCollisionPointRec(mousePos, mapEditorButtons[2])) {
+        else if (CheckCollisionPointRec(mousePos, mapEditorButtons[2]))
+        {
             switchToMap(currentMap + 1);
         }
 
         // add new map
-        else if (CheckCollisionPointRec(mousePos, mapEditorButtons[3])) {
+        else if (CheckCollisionPointRec(mousePos, mapEditorButtons[3]))
+        {
             addNewMap();
         }
 
         // delete current map
-        else if (CheckCollisionPointRec(mousePos, mapEditorButtons[4])) {
+        else if (CheckCollisionPointRec(mousePos, mapEditorButtons[4]))
+        {
             deleteCurrentMap();
         }
     }
 
     // arrow keys to change map
-    if (IsKeyPressed(KEY_LEFT)) {
+    if (IsKeyPressed(KEY_LEFT))
+    {
         switchToMap(currentMap - 1);
     }
-    else if (IsKeyPressed(KEY_RIGHT)) {
+    else if (IsKeyPressed(KEY_RIGHT))
+    {
         switchToMap(currentMap + 1);
     }
 }
@@ -715,7 +818,8 @@ void updateBall()
         bounceBallOnBoundaries();
 
         // bounce ball on paddle and angle ball using that
-        if (bounceBallOnPaddle()) {
+        if (bounceBallOnPaddle())
+        {
             // signed distance between ball center and paddle center
             double delx = ball.pos.x - (paddle.rect.x + paddle.rect.width / 2);
 
@@ -747,7 +851,6 @@ void bounceBallOnBoundaries()
     {
         ball.speed.y *= -1;
         ball.pos.y = ball.radius;
-
     }
     else if (ball.pos.y + ball.radius > GetScreenHeight())
     {
@@ -772,7 +875,7 @@ bool bounceBallOnPaddle()
         ball.pos.y = paddle.rect.y - (ball.radius + 1);
         collision = true;
     }
-    else if (CheckCollisionCircleRec(ball.pos, ball.radius, (Rectangle) {paddle.rect.x - 4, paddle.rect.y, paddle.rect.width + 8, paddle.rect.height}))
+    else if (CheckCollisionCircleRec(ball.pos, ball.radius, (Rectangle){paddle.rect.x - 4, paddle.rect.y, paddle.rect.width + 8, paddle.rect.height}))
     {
         ball.speed.y *= -1;
         collision = true;
@@ -839,7 +942,6 @@ bool checkBallNBrickCollisions()
             collisionNow = true;
             ball.speed.x *= -1;
             ball.pos.x = bX - ball.radius - 1;
-
         }
         // ball to the right of brick
         else if (ball.pos.y >= bY && ball.pos.y <= bY + BRICK_HEIGHT && distancePointLine(ball.pos, rightTop, rightBottom) <= ball.radius + 0.5)
@@ -917,9 +1019,11 @@ void increaseScore(int change)
 }
 
 // Check whether conditions for game end are met
-void checkGameEnd() {
+void checkGameEnd()
+{
     // death
-    if (lives <= 0) {
+    if (lives <= 0)
+    {
         lockBall();
         switchGameState(GS_GAME_END);
     }
@@ -927,28 +1031,33 @@ void checkGameEnd() {
 }
 
 // Manage user name input by keyboard
-void manageGameEndUserInput() {
+void manageGameEndUserInput()
+{
     char ch = GetCharPressed();
 
     // add character to name
-    if (isalnum(ch) && strlen(nameInputStr) < MAX_PLAYER_NAME_LENGTH) {
+    if (isalnum(ch) && strlen(nameInputStr) < MAX_PLAYER_NAME_LENGTH)
+    {
         strncat(nameInputStr, &ch, 1);
     }
 
     // backspace
-    else if (IsKeyPressed(KEY_BACKSPACE) && strlen(nameInputStr) > 0) {
+    else if (IsKeyPressed(KEY_BACKSPACE) && strlen(nameInputStr) > 0)
+    {
         nameInputStr[strlen(nameInputStr) - 1] = '\0';
     }
 
     // save score
-    else if (IsKeyPressed(KEY_ENTER)) {
+    else if (IsKeyPressed(KEY_ENTER))
+    {
         //! (tbd) store high score
         setNewGame();
         switchGameState(GS_MAIN_MENU);
     }
 
     // delete score (no save)
-    else if (IsKeyPressed(KEY_ESCAPE)) {
+    else if (IsKeyPressed(KEY_ESCAPE))
+    {
         setNewGame();
         switchGameState(GS_MAIN_MENU);
     }
@@ -975,6 +1084,12 @@ double distancePointLine(Vector2 point, Vector2 lPoint1, Vector2 lPoint2)
 // Load all textures
 void loadSprites()
 {
+    // Loading Textures For Main Menu
+    for (int i = MAIN_MENU_LOGO_START - 1; i < MAIN_MENU_LOGO_END; i++)
+    {
+        char mainMenuLogoTextureFilePath[50];
+    }
+
     mapEditorButtonTextures[1] = LoadTexture("./assets/ui/larrow.png");
     mapEditorButtonTextures[2] = LoadTexture("./assets/ui/rarrow.png");
     mapEditorButtonTextures[3] = LoadTexture("./assets/ui/plus.png");
@@ -985,10 +1100,11 @@ void loadSprites()
 
     lifeTexture = LoadTexture("./assets/ui/life.png");
     ballImage = LoadTexture("./assets/ball.png");
-    paddleImage = LoadTexture("./assets/paddles/0.png");        // base paddle
+    paddleImage = LoadTexture("./assets/paddles/0.png"); // base paddle
 
     // store brickTextures as: 0 1 2 3 ... -3 -2 -1
-    for (int i = MIN_BRICK_TYPE; i <= MAX_BRICK_TYPE; i++) {
+    for (int i = MIN_BRICK_TYPE; i <= MAX_BRICK_TYPE; i++)
+    {
         char brickTextureFilePath[50];
         int brickTextureIndex = 0;
 
@@ -1022,9 +1138,11 @@ void unloadSprites()
 }
 
 // Contains all draw calls; func called inside game loop
-void drawLoop() {
+void drawLoop()
+{
     // core game
-    if (gameState == GS_MAIN_GAME) {
+    if (gameState == GS_MAIN_GAME)
+    {
         drawPaddle();
         drawBall();
         drawBricks();
@@ -1034,7 +1152,8 @@ void drawLoop() {
             drawMainGameUI();
     }
     // game end
-    else if (gameState == GS_GAME_END) {
+    else if (gameState == GS_GAME_END)
+    {
         drawGameEnd();
     }
     // map editor
@@ -1044,7 +1163,8 @@ void drawLoop() {
     }
 }
 
-void drawMainGameUI() {
+void drawMainGameUI()
+{
     // time (left)
     DrawText("Time", PADDING_SIDES_UI, PADDING_ABOVE_UI, 16, RAYWHITE);
     char timeText[20];
@@ -1058,13 +1178,13 @@ void drawMainGameUI() {
     DrawText(scoreText, (GetScreenWidth() - MeasureText(scoreText, 18)) / 2, PADDING_ABOVE_UI + 18 * 1.4, 18, RAYWHITE);
 
     // lives (right)
-    for (int i = 0; i < lives; i++) {
+    for (int i = 0; i < lives; i++)
+    {
         DrawTextureRec(lifeTexture,
-            (Rectangle) { 0, 0, lifeTexture.width, lifeTexture.height },
-            (Vector2) { GetScreenWidth() - PADDING_SIDES_UI - (i + 1) * lifeTexture.width - i * 5,
-                        PADDING_ABOVE_UI + 20 },
-            WHITE
-        );
+                       (Rectangle){0, 0, lifeTexture.width, lifeTexture.height},
+                       (Vector2){GetScreenWidth() - PADDING_SIDES_UI - (i + 1) * lifeTexture.width - i * 5,
+                                 PADDING_ABOVE_UI + 20},
+                       WHITE);
     }
 }
 
@@ -1098,7 +1218,8 @@ void drawBricks()
 }
 
 // Setup buttons in map editor
-void setMapEditor() {
+void setMapEditor()
+{
     int px = 0, py = 20;
 
     const int fontSize = 16;
@@ -1109,12 +1230,13 @@ void setMapEditor() {
     px = (GetScreenWidth() - mapNameBoxDimensions.x - otherBoxDimensions.x * 3 - spacing * 3) / 2;
 
     // map name box
-    mapEditorButtons[0] = (Rectangle) { px, py, mapNameBoxDimensions.x, mapNameBoxDimensions.y };
+    mapEditorButtons[0] = (Rectangle){px, py, mapNameBoxDimensions.x, mapNameBoxDimensions.y};
     px += mapNameBoxDimensions.x + spacing;
 
     // other 4
-    for (int i = 0; i < 4; i++) {
-        mapEditorButtons[i + 1] = (Rectangle) { px + i * otherBoxDimensions.x + i * spacing, py, otherBoxDimensions.x, otherBoxDimensions.y };
+    for (int i = 0; i < 4; i++)
+    {
+        mapEditorButtons[i + 1] = (Rectangle){px + i * otherBoxDimensions.x + i * spacing, py, otherBoxDimensions.x, otherBoxDimensions.y};
     }
 }
 
@@ -1131,39 +1253,40 @@ void drawMapEditor()
     DrawText(mapText, mapEditorButtons[0].x + 10, mapEditorButtons[0].y + (mapEditorButtons[0].height - fontSize) / 2, fontSize, WHITE);
 
     // buttons to change current selected map
-    for (int i = 1; i <= 4; i++) {
+    for (int i = 1; i <= 4; i++)
+    {
         DrawRectangleLinesEx(mapEditorButtons[i], 1, WHITE);
 
         DrawTexturePro(
             mapEditorButtonTextures[i],
-            (Rectangle) {0, 0, mapEditorButtonTextures[i].width, mapEditorButtonTextures[i].height},
-            (Rectangle) {mapEditorButtons[i].x + (mapEditorButtons[i].width - fontSize) / 2, mapEditorButtons[i].y + fontSize / 2, fontSize, fontSize},
-            (Vector2) {0, 0},
+            (Rectangle){0, 0, mapEditorButtonTextures[i].width, mapEditorButtonTextures[i].height},
+            (Rectangle){mapEditorButtons[i].x + (mapEditorButtons[i].width - fontSize) / 2, mapEditorButtons[i].y + fontSize / 2, fontSize, fontSize},
+            (Vector2){0, 0},
             0.0f,
-            ((i == 4 && numberOfMaps <= 1 ) || (i == 3 && numberOfMaps >= MAX_NUMBER_OF_MAPS)) ? GRAY : WHITE
-        );
+            ((i == 4 && numberOfMaps <= 1) || (i == 3 && numberOfMaps >= MAX_NUMBER_OF_MAPS)) ? GRAY : WHITE);
     }
 
     // color based on whether mouse points to corresponding brick
-    Color notHighlighted = (Color) {255, 255, 255, .35 * 255}, highlighted = RAYWHITE;
+    Color notHighlighted = (Color){255, 255, 255, .35 * 255}, highlighted = RAYWHITE;
     Vector2 mousePos = GetMousePosition();
 
     // row and column numbers
-    for (int i = 0; i < maxBrickCols || i < maxBrickRows; i++) {
+    for (int i = 0; i < maxBrickCols || i < maxBrickRows; i++)
+    {
         char numText[20];
         sprintf(numText, "%d", i + 1);
         Vector2 textSize = MeasureTextEx(GetFontDefault(), numText, 15, 0);
 
         // check if mouse is on ANY brick at all
-        bool mouseOnBricks = CheckCollisionPointRec(mousePos, (Rectangle) {
-            bricks[0].rect.x,
-            bricks[0].rect.y,
-            maxBrickCols * BRICK_WIDTH,
-            maxBrickRows * BRICK_HEIGHT
-        });
+        bool mouseOnBricks = CheckCollisionPointRec(mousePos, (Rectangle){
+                                                                  bricks[0].rect.x,
+                                                                  bricks[0].rect.y,
+                                                                  maxBrickCols * BRICK_WIDTH,
+                                                                  maxBrickRows * BRICK_HEIGHT});
 
         Color numColor;
-        if (i < maxBrickCols){
+        if (i < maxBrickCols)
+        {
             if (mousePos.x >= bricks[i].rect.x && mousePos.x <= bricks[i].rect.x + BRICK_WIDTH && mouseOnBricks)
                 numColor = highlighted;
             else
@@ -1173,7 +1296,8 @@ void drawMapEditor()
             DrawText(numText, bricks[i].rect.x + (BRICK_WIDTH - textSize.x) / 2, bricks[maxBrickRows * maxBrickCols - 1].rect.y + BRICK_HEIGHT + 5, 15, numColor);
         }
 
-        if (i < maxBrickRows) {
+        if (i < maxBrickRows)
+        {
             if (mousePos.y >= bricks[i * maxBrickCols].rect.y && mousePos.y <= bricks[i * maxBrickCols].rect.y + BRICK_HEIGHT && mouseOnBricks)
                 numColor = highlighted;
             else
@@ -1188,13 +1312,13 @@ void drawMapEditor()
     drawBricks();
 
     // brick outlines
-    for (int i = 0; i < numBricks; i++) {
+    for (int i = 0; i < numBricks; i++)
+    {
         // check if mouse inside brick
         if (CheckCollisionPointRec(mousePos, bricks[i].rect))
             DrawRectangleLinesEx(bricks[i].rect, 2, highlighted);
         else
             DrawRectangleLinesEx(bricks[i].rect, 1, notHighlighted);
-
     }
 }
 
@@ -1224,7 +1348,8 @@ void drawGameEnd()
     // time played
     char timeText[50];
     sprintf(timeText, "Time Played: ");
-    if (playtime / 60 > 0) {
+    if (playtime / 60 > 0)
+    {
         char minText[20];
         sprintf(minText, "%d minutes, ", playtime / 60);
         strcat(timeText, minText);
@@ -1281,7 +1406,7 @@ void drawDebugView()
 
     // outlines
     DrawCircleLinesV(ball.pos, ball.radius, RED);
-    DrawRectangleLinesEx((Rectangle){paddle.rect.x - 4, paddle.rect.y - 2, paddle.rect.width + 8    , paddle.rect.height + 4}, 1, RED);
+    DrawRectangleLinesEx((Rectangle){paddle.rect.x - 4, paddle.rect.y - 2, paddle.rect.width + 8, paddle.rect.height + 4}, 1, RED);
 
     // stats
     char fpsText[20] = {'\0'};
