@@ -28,7 +28,7 @@
 #define MAIN_MENU_TEXTURES_PATH "./assets/main_menu/"
 
 int gameState = GS_MAIN_MENU;
-int gameStateDemo = GS_MAIN_MENU; // test
+bool exitGame = false;
 
 // Texture for main menu
 Texture2D mainMenuLogo[MAIN_MENU_LOGO_END];
@@ -119,6 +119,7 @@ typedef struct Brick
 // required for map editor brick changes
 const int MAX_BRICK_TYPE = 3;
 const int MIN_BRICK_TYPE = -1;
+bool justMouseClicked = false;
 
 Brick bricks[MAX_NUMBER_OF_BRICKS];
 
@@ -224,7 +225,7 @@ int main(void)
     // make it so, esc key doesn't close the game
     SetExitKey(KEY_NULL);
 
-    while (!WindowShouldClose())
+    while (!WindowShouldClose() && !exitGame)
     {
         manageDebugView();
         manageGameStateChanges();
@@ -349,9 +350,8 @@ void switchGameState(int state)
 void createMainMenuButtons()
 {
     const int buttonTextFontSize = 22;
-    // DrawText(TextFormat("State: %d", gameStateDemo), 10, 10, 100, RAYWHITE);
     Rectangle mainMenuButtonRect = {(WINDOW_WIDTH - MAIN_MENU_BUTTON_WIDTH) / 2, WINDOW_HEIGHT / 2 - MAIN_MENU_BUTTON_HEIGHT, MAIN_MENU_BUTTON_WIDTH, MAIN_MENU_BUTTON_HEIGHT};
-    for (int i = 0; i < 6; i++)
+    for (int i = 0; i < 3; i++)
     {
         char *menuButtonText;
         switch (i)
@@ -360,23 +360,14 @@ void createMainMenuButtons()
             menuButtonText = "New Game";
             break;
         case 1:
-            menuButtonText = "High Scores";
-            break;
-        case 2:
             menuButtonText = "Map Maker";
             break;
-        case 3:
-            menuButtonText = "Help";
-            break;
-        case 4:
+        case 2:
             menuButtonText = "Exit";
-            break;
-        case 5:
-            menuButtonText = "Ho Lee Shit";
             break;
         }
         int textWidth = MeasureText(menuButtonText, buttonTextFontSize);
-        DrawRectangleRec(mainMenuButtonRect, RED);
+        // DrawRectangleRec(mainMenuButtonRect, RED);
         DrawText(menuButtonText, mainMenuButtonRect.x + (mainMenuButtonRect.width - textWidth) / 2, mainMenuButtonRect.y + (mainMenuButtonRect.height - buttonTextFontSize) / 2, buttonTextFontSize, WHITE);
         mainMenuButtonRect.y += (10 + mainMenuButtonRect.height);
     }
@@ -394,23 +385,12 @@ void checkMainMenuButtonClick(Vector2 mousePos)
     }
     else if (insideRectX_Axis && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && (mousePos.y >= y + MAIN_MENU_BUTTON_HEIGHT * 1 + 10 * 1 && mousePos.y <= y + MAIN_MENU_BUTTON_HEIGHT * 2 + 10 * 1))
     {
-        switchGameState(GS_MAIN_MENU); // for high scores //*unimplimented
+        justMouseClicked = true;
+        switchGameState(GS_MAP_EDITOR);
     }
     else if (insideRectX_Axis && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && (mousePos.y >= y + MAIN_MENU_BUTTON_HEIGHT * 2 + 10 * 2 && mousePos.y <= y + MAIN_MENU_BUTTON_HEIGHT * 3 + 10 * 2))
     {
-        switchGameState(GS_MAP_EDITOR);
-    }
-    else if (insideRectX_Axis && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && (mousePos.y >= y + MAIN_MENU_BUTTON_HEIGHT * 3 + 10 * 3 && mousePos.y <= y + MAIN_MENU_BUTTON_HEIGHT * 4 + 10 * 3))
-    {
-        gameStateDemo = 4;
-    }
-    else if (insideRectX_Axis && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && (mousePos.y >= y + MAIN_MENU_BUTTON_HEIGHT * 4 + 10 * 4 && mousePos.y <= y + MAIN_MENU_BUTTON_HEIGHT * 5 + 10 * 4))
-    {
-        gameStateDemo = 5;
-    }
-    else if (insideRectX_Axis && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && (mousePos.y >= y + MAIN_MENU_BUTTON_HEIGHT * 5 + 10 * 5 && mousePos.y <= y + MAIN_MENU_BUTTON_HEIGHT * 6 + 10 * 5))
-    {
-        gameStateDemo = 6;
+        exitGame = true;
     }
 }
 
@@ -640,6 +620,12 @@ void writeMapToFile(FILE *outputFile)
 // Checks changes to map in map editor
 void checkMapEdit()
 {
+    //* So that the map doesn't update automatically
+    if (IsMouseButtonUp(MOUSE_BUTTON_LEFT))
+        justMouseClicked = false;
+    if (justMouseClicked)
+        return;
+
     Vector2 mousePos = GetMousePosition();
 
     // save map
