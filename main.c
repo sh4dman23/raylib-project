@@ -348,19 +348,38 @@ void switchGameState(int state)
 // main menu buttons for changing states
 void createMainMenuButtons()
 {
-    DrawText(TextFormat("State: %d", gameStateDemo), 10, 10, 100, RAYWHITE);
+    const int buttonTextFontSize = 22;
+    // DrawText(TextFormat("State: %d", gameStateDemo), 10, 10, 100, RAYWHITE);
     Rectangle mainMenuButtonRect = {(WINDOW_WIDTH - MAIN_MENU_BUTTON_WIDTH) / 2, WINDOW_HEIGHT / 2 - MAIN_MENU_BUTTON_HEIGHT, MAIN_MENU_BUTTON_WIDTH, MAIN_MENU_BUTTON_HEIGHT};
-    DrawRectangleRec(mainMenuButtonRect, WHITE);
-    mainMenuButtonRect.y += (10 + mainMenuButtonRect.height);
-    DrawRectangleRec(mainMenuButtonRect, WHITE);
-    mainMenuButtonRect.y += (10 + mainMenuButtonRect.height);
-    DrawRectangleRec(mainMenuButtonRect, WHITE);
-    mainMenuButtonRect.y += (10 + mainMenuButtonRect.height);
-    DrawRectangleRec(mainMenuButtonRect, WHITE);
-    mainMenuButtonRect.y += (10 + mainMenuButtonRect.height);
-    DrawRectangleRec(mainMenuButtonRect, WHITE);
-    mainMenuButtonRect.y += (10 + mainMenuButtonRect.height);
-    DrawRectangleRec(mainMenuButtonRect, WHITE);
+    for (int i = 0; i < 6; i++)
+    {
+        char *menuButtonText;
+        switch (i)
+        {
+        case 0:
+            menuButtonText = "New Game";
+            break;
+        case 1:
+            menuButtonText = "High Scores";
+            break;
+        case 2:
+            menuButtonText = "Map Maker";
+            break;
+        case 3:
+            menuButtonText = "Help";
+            break;
+        case 4:
+            menuButtonText = "Exit";
+            break;
+        case 5:
+            menuButtonText = "Ho Lee Shit";
+            break;
+        }
+        int textWidth = MeasureText(menuButtonText, buttonTextFontSize);
+        DrawRectangleRec(mainMenuButtonRect, RED);
+        DrawText(menuButtonText, mainMenuButtonRect.x + (mainMenuButtonRect.width - textWidth) / 2, mainMenuButtonRect.y + (mainMenuButtonRect.height - buttonTextFontSize) / 2, buttonTextFontSize, WHITE);
+        mainMenuButtonRect.y += (10 + mainMenuButtonRect.height);
+    }
 }
 
 // checking which button was clicked
@@ -371,15 +390,15 @@ void checkMainMenuButtonClick(Vector2 mousePos)
     bool insideRectX_Axis = mousePos.x >= x && mousePos.x <= (x + MAIN_MENU_BUTTON_WIDTH);
     if (insideRectX_Axis && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && (mousePos.y >= y && mousePos.y <= y + MAIN_MENU_BUTTON_HEIGHT))
     {
-        gameStateDemo = 1;
+        switchGameState(GS_MAIN_GAME);
     }
     else if (insideRectX_Axis && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && (mousePos.y >= y + MAIN_MENU_BUTTON_HEIGHT * 1 + 10 * 1 && mousePos.y <= y + MAIN_MENU_BUTTON_HEIGHT * 2 + 10 * 1))
     {
-        gameStateDemo = 2;
+        switchGameState(GS_MAIN_MENU); // for high scores //*unimplimented
     }
     else if (insideRectX_Axis && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && (mousePos.y >= y + MAIN_MENU_BUTTON_HEIGHT * 2 + 10 * 2 && mousePos.y <= y + MAIN_MENU_BUTTON_HEIGHT * 3 + 10 * 2))
     {
-        gameStateDemo = 3;
+        switchGameState(GS_MAP_EDITOR);
     }
     else if (insideRectX_Axis && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && (mousePos.y >= y + MAIN_MENU_BUTTON_HEIGHT * 3 + 10 * 3 && mousePos.y <= y + MAIN_MENU_BUTTON_HEIGHT * 4 + 10 * 3))
     {
