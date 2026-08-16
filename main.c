@@ -128,6 +128,15 @@ int numberOfMaps = 0;
 Rectangle mapEditorButtons[NUM_MAP_EDITOR_BUTTONS];
 Texture2D mapEditorButtonTextures[NUM_MAP_EDITOR_BUTTONS];
 
+//* Audio
+#define MUSIC_FILES_PATH "./audio/music"
+
+const int NUMBER_OF_MUSIC_FILES = 5;
+int currMusicIndex = 0;
+Music currMusic;
+
+bool musicStopped = false;  // check whether
+
 /* Function Prototypes */
 void initializeGame();
 
@@ -135,7 +144,7 @@ void manageDebugView();
 void manageGameStateChanges();
 void switchGameState(int state);
 
-// Updates
+// General updates
 void updateLoop();
 
 // Non-core game interactions
@@ -196,9 +205,18 @@ void drawMapEditor();
 void drawGameEnd();
 void drawDebugView();
 
+// Music
+void updateAudio();
+void rotateMusic();
+void switchMusic(int musicIndex);
+void unloadAudio();
+void checkMusicChange();
+
 int main(void)
 {
     InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, GAME_WINDOW_TITLE);
+    InitAudioDevice();
+
     SetTargetFPS(60);
 
     // initialize game
@@ -215,6 +233,7 @@ int main(void)
 
         // updates
         updateLoop();
+        updateAudio();
 
         // draw
         BeginDrawing();
@@ -224,6 +243,8 @@ int main(void)
     }
 
     unloadSprites();
+    unloadAudio();
+    CloseAudioDevice();
     CloseWindow();
     return 0;
 }
@@ -244,10 +265,12 @@ void updateLoop() {
         // check whether lives end or breakable bricks are all broken
         checkGameEnd();
     }
+
     // end game screen
     else if (gameState == GS_GAME_END) {
         manageGameEndUserInput();
     }
+
     // map editor
     else if (gameState == GS_MAP_EDITOR)
     {
@@ -319,6 +342,9 @@ void initializeGame()
     initializeAllMaps();
     setNewGame();
     setMapEditor();
+
+    //! start playing music
+    switchMusic(currMusicIndex);
 }
 
 // Reset everything in memory to prepare for new game
@@ -1285,3 +1311,77 @@ void drawDebugView()
     for (int i = 0; i < numBricks; i++)
         DrawRectangleLinesEx(bricks[i].rect, 1, RAYWHITE);
 }
+
+void updateAudio()
+{
+    //? updates for all sfx go here
+    // UpdateAudioStream()
+
+    // update current music stream
+    UpdateMusicStream(currMusic);
+
+    // music rotation
+    rotateMusic();
+
+    // check user input
+    checkMusicChange();
+}
+
+// Switch to new music
+void switchMusic(int musicIndex)
+{
+    if (IsMusicValid(currMusic)) {
+        StopMusicStream(currMusic);
+        UnloadMusicStream(currMusic);
+    }
+
+    char musicFile[strlen(MUSIC_FILES_PATH) + 10];
+
+    if (musicIndex >= NUMBER_OF_MUSIC_FILES)
+        currMusicIndex = 0;
+    else if (musicIndex < 0)
+        currMusicIndex = NUMBER_OF_MUSIC_FILES - 1;
+    else
+        currMusicIndex = musicIndex;
+
+    sprintf(musicFile, "%s/%d.mp3", MUSIC_FILES_PATH, currMusicIndex);
+    currMusic = LoadMusicStream(musicFile);
+    currMusic.looping = false;
+
+    PlayMusicStream(currMusic);
+
+    //! unimplemented: game audio
+    SetMusicVolume(currMusic, 1.0);
+
+    // unset music stopped flag
+    musicStopped = false;
+}
+
+// Rotate music, basically switching to next track
+void rotateMusic()
+{
+    // Check whether music not playing and music not stopped earlier
+    if (!IsMusicStreamPlaying(currMusic) && !musicStopped) {
+        musicStopped = true;
+        switchMusic(currMusicIndex + 1);
+    }
+}
+
+// Unload all sfx and music
+void unloadAudio()
+{
+    if (IsMusicValid(currMusic))
+        UnloadMusicStream(currMusic);
+}
+
+// Check user input for changing music
+void checkMusicChange()
+{
+    if (IsKeyDown(KEY_LEFT_SHIFT)){
+        if (IsKeyPressed(KEY_APOSTROPHE))
+            switchMusic(currMusicIndex + 1);
+        else if (IsKeyPressed(KEY_SEMICOLON))
+            switchMusic(currMusicIndex - 1);
+    }
+}
+
