@@ -291,10 +291,6 @@ void manageGameStateChanges()
     if (gameState == GS_MAIN_MENU)
     {
         mainMenuScreen();
-        //? (tbd) code for main menu ui interactions that change gamestates go here
-
-        //? currently, just default switch to main game if in main menu
-        // switchGameState(GS_MAIN_GAME);
     }
 
     //! current working method to switch to map editor
