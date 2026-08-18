@@ -157,12 +157,7 @@ void manageGameStateChanges();
 void switchGameState(int state);
 
 // Main Menu
-void mainMenuScreen();
-void createMainMenuButtons();
-void checkMainMenuButtonClick(Vector2 mousePos);
-
-// Main Menu
-void mainMenuScreen();
+void manageMainMenuScreen();
 void createMainMenuButtons();
 void checkMainMenuButtonClick(Vector2 mousePos);
 
@@ -272,20 +267,23 @@ int main(void)
     return 0;
 }
 
-void mainMenuScreen()
+void manageMainMenuScreen()
 {
     if (gameState != GS_MAIN_MENU)
         return;
 
     ClearBackground(BLACK);
-    Vector2 mousePositionMainMenu = GetMousePosition();
     createMainMenuButtons();
-    checkMainMenuButtonClick(mousePositionMainMenu);
 }
 
 // Manage all updates based on game state
 void updateLoop()
 {
+    // main menu
+    if (gameState == GS_MAIN_MENU) {
+        manageMainMenuScreen();
+    }
+
     // core game
     if (gameState == GS_MAIN_GAME)
     {
@@ -319,20 +317,12 @@ void manageGameStateChanges()
 {
     if (gameState == GS_MAIN_MENU)
     {
-        mainMenuScreen();
+        checkMainMenuButtonClick(GetMousePosition());
     }
 
-    //! current working method to switch to map editor
-    else if (gameState == GS_MAIN_GAME && IsKeyPressed(KEY_F2))
-    {
-        switchGameState(GS_MAP_EDITOR);
-    }
-    // switch from map editor back to main game
-    else if (gameState == GS_MAP_EDITOR && IsKeyPressed(KEY_F2))
-    {
-        // open last saved map
-        initializeCurrentMap();
-        switchGameState(GS_MAIN_GAME);
+    // escape key pressed from any game state except main menu
+    if (gameState != GS_MAIN_MENU && IsKeyPressed(KEY_ESCAPE)) {
+        switchGameState(GS_MAIN_MENU);
     }
 }
 
@@ -349,8 +339,14 @@ void switchGameState(int state)
         lockBall();
     }
 
-    // main game -> map editor
-    if (gameState == GS_MAIN_GAME && state == GS_MAP_EDITOR)
+    // main game -> main menu
+    if (gameState == GS_MAIN_GAME && state == GS_MAIN_MENU) {
+        // erase progress
+        setNewGame();
+    }
+
+    // main menu / main game -> map editor
+    if ((gameState == GS_MAIN_MENU || gameState == GS_MAIN_GAME) && state == GS_MAP_EDITOR)
     {
         setNewGame();
     }
@@ -514,7 +510,7 @@ void initializeCurrentMap()
     fclose(mapInputFile);
 }
 
-// Switch to another map
+// Switch to another map and initializes it
 void switchToMap(int mapIndex)
 {
     if (mapIndex < 0)
