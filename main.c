@@ -1315,6 +1315,18 @@ void drawMapEditor()
     // buttons to change current selected map
     for (int i = 1; i <= 4; i++)
     {
+        Color buttonColor = GRAY;
+
+        // grey out map addition and deletion buttons
+        if ((i == 4 && numberOfMaps <= 1) || (i == 3 && numberOfMaps >= MAX_NUMBER_OF_MAPS))
+            buttonColor = GRAY;
+
+        // highlight buttons on hover
+        else if (CheckCollisionPointRec(GetMousePosition(), mapEditorButtons[i])) {
+            buttonColor = WHITE;
+        }
+
+
         DrawRectangleLinesEx(mapEditorButtons[i], 1, WHITE);
 
         DrawTexturePro(
@@ -1323,7 +1335,8 @@ void drawMapEditor()
             (Rectangle){mapEditorButtons[i].x + (mapEditorButtons[i].width - fontSize) / 2, mapEditorButtons[i].y + fontSize / 2, fontSize, fontSize},
             (Vector2){0, 0},
             0.0f,
-            ((i == 4 && numberOfMaps <= 1) || (i == 3 && numberOfMaps >= MAX_NUMBER_OF_MAPS)) ? GRAY : WHITE);
+            buttonColor
+        );
     }
 
     // color based on whether mouse points to corresponding brick
