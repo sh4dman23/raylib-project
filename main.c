@@ -185,6 +185,7 @@ void updatePaddle();
 
 void checkAllCollisions();
 bool checkBallNBrickCollisions(); //! to be improved
+void degradeBrick(int brickIndex);
 
 void bounceBallOnBoundaries();
 bool bounceBallOnPaddle();
@@ -918,8 +919,71 @@ void checkAllCollisions()
     checkBallNBrickCollisions();
 }
 
-// Check collision between ball and brick and return brick index
-bool checkBallNBrickCollisions()
+// Check collision between ball and bricks
+bool checkBallNBrickCollisions() {
+    bool collision = false;
+
+    for (int i = 0; i < numBricks; i++) {
+
+        // no collisions for empty bricks
+        if (bricks[i].type == 0 || !CheckCollisionCircleRec(ball.pos, ball.radius, bricks[i].rect))
+            continue;
+
+        collision = true;
+
+        // distance between centers of rectangle and ball
+        double dX = ball.pos.x - (bricks[i].rect.x + BRICK_WIDTH / 2);
+        double dY = ball.pos.y - (bricks[i].rect.y + BRICK_HEIGHT / 2);
+
+        // overlaps between ball and rectangle
+        double overlapX = (BRICK_WIDTH / 2 + ball.radius) - fabs(dX);
+        double overlapY = (BRICK_HEIGHT / 2 + ball.radius) - fabs(dY);
+
+        if (overlapX <= overlapY) {
+            if (dX > 0) {
+                ball.speed.x *= -1;
+                ball.pos.x = bricks[i].rect.x + BRICK_WIDTH + ball.radius + 1;
+            }
+            else {
+                ball.speed.x *= -1;
+                ball.pos.x = bricks[i].rect.x - ball.radius - 1;
+            }
+        }
+
+        if (overlapY <= overlapX) {
+            if (dY > 0) {
+                ball.speed.y *= -1;
+                ball.pos.y = bricks[i].rect.y + BRICK_HEIGHT + ball.radius + 1;
+            }
+            else {
+                ball.speed.y *= -1;
+                ball.pos.y = bricks[i].rect.y - ball.radius - 1;
+            }
+        }
+
+        degradeBrick(i);
+    }
+
+    return collision;
+}
+
+// Degrade brick, based on its type
+void degradeBrick(int brickIndex) {
+    // empty bricks and unbreakable bricks
+    if (bricks[brickIndex].type == 0 || bricks[brickIndex].type == -1)
+        return;
+
+    // standard bricks
+    if (bricks[brickIndex].type > 0) {
+        increaseScore(BASE_BRICK_HIT_SCORE);
+
+        // degrade brick
+        bricks[brickIndex].type--;
+    }
+}
+
+// [Deprecated - DO NOT USE] Check collision between ball and bricks
+bool checkBallNBrickCollisions2()
 {
     bool collision = false;
     for (int i = 0; i < numBricks; i++)
