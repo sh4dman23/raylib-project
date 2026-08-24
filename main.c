@@ -109,6 +109,8 @@ int maxBrickRows = (WINDOW_HEIGHT - PADDING_ABOVE_MAP - PADDING_BELOW_MAP) / BRI
 int maxBrickCols = (WINDOW_WIDTH - PADDING_ON_MAP_SIDES * 2) / BRICK_WIDTH;
 int numBricks;
 
+int breakableBricksLeft = 0;    // number of bricks remaining until level ends
+
 // brick types = 0 (empty), 1, 2, 3 (standard), -1 (unbreakable)
 typedef struct Brick
 {
@@ -170,6 +172,7 @@ void resetAllInput();
 
 // Core Game Logic
 void setNewGame();
+void setNewLevel();
 
 void resetBall();
 void resetPaddle();
@@ -179,7 +182,7 @@ void updateBall();
 void updatePaddle();
 
 void checkAllCollisions();
-bool checkBallNBrickCollisions(); //! to be improved
+bool checkBallNBrickCollisions();
 void degradeBrick(int brickIndex);
 
 void bounceBallOnBoundaries();
@@ -190,6 +193,7 @@ void updatePlayTime();
 void resetStats();
 void increaseScore(int change);
 
+void checkLevelEnd();
 void checkGameEnd();
 
 double distancePointLine(Vector2 point, Vector2 lPoint1, Vector2 lPoint2);
@@ -295,8 +299,11 @@ void updateLoop()
         // collisions
         checkAllCollisions();
 
-        // check whether lives end or breakable bricks are all broken
+        // check if lives are over
         checkGameEnd();
+
+        // check whether level is beaten
+        checkLevelEnd();
     }
 
     // end game screen
@@ -437,6 +444,15 @@ void setNewGame()
     resetBall();
     resetStats();
     resetAllInput();
+}
+
+// Transition to new map
+void setNewLevel()
+{
+    resetPaddle();
+    resetBall();
+    resetAllInput();
+    switchToMap(currentMap);
 }
 
 // Update playtime variable every second
@@ -625,6 +641,8 @@ void readMapFromFile(FILE *mapFile)
                 numBreakableBricks++;
         }
     }
+
+    breakableBricksLeft = numBreakableBricks;
 }
 
 // Save map from memory to file
@@ -975,6 +993,10 @@ void degradeBrick(int brickIndex) {
 
         // degrade brick
         bricks[brickIndex].type--;
+
+        // brick destroyed completely
+        if (bricks[brickIndex].type == 0)
+            breakableBricksLeft--;
     }
 }
 
@@ -1078,6 +1100,28 @@ void increaseScore(int change)
     playerScore += change * scoreMultiplier;
 }
 
+// Check whether all breakable bricks in current map are destroyed
+void checkLevelEnd()
+{
+    if (breakableBricksLeft > 0 || lives <= 0)
+        return;
+
+    // more levels left
+    if (currentMap + 1 < numberOfMaps)
+    {
+        currentMap++;
+        setNewLevel();
+    }
+
+    // all levels finished
+    else
+    {
+        lockBall();
+        switchGameState(GS_GAME_END);
+        printf("%d\n", gameState);
+    }
+}
+
 // Check whether conditions for game end are met
 void checkGameEnd()
 {
@@ -1087,7 +1131,6 @@ void checkGameEnd()
         lockBall();
         switchGameState(GS_GAME_END);
     }
-    //? implement change to next map or show victory screen
 }
 
 // Manage user name input by keyboard
