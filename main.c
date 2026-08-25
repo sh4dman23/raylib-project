@@ -69,8 +69,9 @@ typedef struct HSEntry
 } HSEntry;
 
 HSEntry highScores[MAX_HIGH_SCORES];
+int numHighScores = 0;                  // store how many high scores are present in memory
 
-int numHighScores = 0;
+Texture2D highScoresTitleImage;         // image for high scores title
 
 //* Ball
 typedef struct Ball
@@ -1326,23 +1327,29 @@ double distancePointLine(Vector2 point, Vector2 lPoint1, Vector2 lPoint2)
 // Load all textures
 void loadSprites()
 {
-    // Loading Textures For Main Menu
+    //? (tbd) Loading Textures For Main Menu
     for (int i = MAIN_MENU_LOGO_START - 1; i < MAIN_MENU_LOGO_END; i++)
     {
         char mainMenuLogoTextureFilePath[50];
     }
 
+    // map editor buttons
     mapEditorButtonTextures[1] = LoadTexture("./assets/ui/larrow.png");
     mapEditorButtonTextures[2] = LoadTexture("./assets/ui/rarrow.png");
     mapEditorButtonTextures[3] = LoadTexture("./assets/ui/plus.png");
     mapEditorButtonTextures[4] = LoadTexture("./assets/ui/delete.png");
 
+    // victory or defeat title
     victoryImage = LoadTexture("./assets/ui/victory.png");
     defeatImage = LoadTexture("./assets/ui/defeat.png");
 
+    // main game ui
     lifeTexture = LoadTexture("./assets/ui/life.png");
     ballImage = LoadTexture("./assets/ball.png");
     paddleImage = LoadTexture("./assets/paddles/0.png"); // base paddle
+
+    // high score title
+    highScoresTitleImage = LoadTexture("./assets/ui/highScores.png");
 
     // store brickTextures as: 0 1 2 3 ... -3 -2 -1
     for (int i = MIN_BRICK_TYPE; i <= MAX_BRICK_TYPE; i++)
@@ -1375,6 +1382,8 @@ void unloadSprites()
     UnloadTexture(ballImage);
     UnloadTexture(paddleImage);
 
+    UnloadTexture(highScoresTitleImage);
+
     for (int i = 0; i <= NUM_BRICK_TEXTURES; i++)
         UnloadTexture(brickTextures[i]);
 }
@@ -1396,6 +1405,10 @@ void drawLoop()
     else if (gameState == GS_MAP_EDITOR)
     {
         drawMapEditor();
+    }
+    // high scores
+    else if (gameState == GS_HIGH_SCORES) {
+        drawHighScoresScreen();
     }
 }
 
@@ -1589,7 +1602,89 @@ void drawMapEditor()
 
 // Draw leaderboards
 void drawHighScoresScreen()  {
-    //? wip
+    // size and spacings for table
+    const int fontSize = 16;
+    const double rowHeight = 18 * 2;
+
+    const int NUM_HEADERS = 4;
+    const char *colHeaders[4] = {
+        "#",
+        "Name",
+        "Score",
+        "Time"
+    };
+
+    // 60% of screen width
+    const double tableWidth = 0.65 * GetScreenWidth();
+    const double colWidth[4] = {
+        0.10 * tableWidth,
+        0.45 * tableWidth,
+        0.25 * tableWidth,
+        0.20 * tableWidth
+    };
+
+    // variables to keep track of position to draw stuff
+    double px = (GetScreenWidth() - highScoresTitleImage.width) / 2;
+    double py = PADDING_ABOVE_MAP - 20;
+
+    // draw high scores title
+    DrawTexture(highScoresTitleImage, px, py, WHITE);
+    py += highScoresTitleImage.height + 20;
+
+    // draw table headers
+    px = (GetScreenWidth() - tableWidth) / 2;
+    for (int i = 0; i < NUM_HEADERS; i++) {
+        // cell outline
+        DrawRectangleLines(px, py, colWidth[i], rowHeight, RAYWHITE);
+
+        DrawText(colHeaders[i], px + (colWidth[i] - MeasureText(colHeaders[i], fontSize + 2)) / 2, py + (rowHeight - fontSize - 2) / 2, fontSize + 2, RAYWHITE);
+
+        px += colWidth[i];
+    }
+
+    px = (GetScreenWidth() - tableWidth) / 2;
+    py += rowHeight;
+
+    // draw cells and values inside them
+    for (int i = 0; i < MAX_HIGH_SCORES; i++) {
+        for (int j = 0; j < NUM_HEADERS; j++) {
+            // cell outline
+            DrawRectangleLines(px, py, colWidth[j], rowHeight, RAYWHITE);
+
+            char cellText[50] = {'\0'};
+
+            if (j == 0) {       // #
+                sprintf(cellText, "%d", i + 1);
+            }
+            else if (j == 1) {  // name
+                sprintf(cellText, "%s", highScores[i].name);
+            }
+            else if (j == 2) {  // score
+                sprintf(cellText, "%d", highScores[i].score);
+            }
+            else if (j == 3) {  // playtime
+                sprintf(cellText, "%02d : %02d", highScores[i].playtime / 60, highScores[i].playtime % 60);
+            }
+
+            // empty cell
+            if (i >= numHighScores && j != 0) {
+                sprintf(cellText, "-");
+            }
+
+            DrawText(
+                cellText,
+                px + (colWidth[j] - MeasureText(cellText, fontSize + 2)) / 2,
+                py + (rowHeight - fontSize - 2) / 2,
+                fontSize + 2,
+                i == 0 ? (Color) {211, 175, 55, 255} : i == 1 ? (Color) {187, 194, 204, 255} : i == 2 ? (Color) {228, 149, 60, 255} : RAYWHITE
+            );
+
+            px += colWidth[j];
+        }
+
+        px = (GetScreenWidth() - tableWidth) / 2;
+        py += rowHeight;
+    }
 }
 
 // Draw victory/defeat screen
