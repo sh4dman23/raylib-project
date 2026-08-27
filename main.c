@@ -842,7 +842,7 @@ void updateBall()
         double timeSinceBallLock = GetTime() - lastBallLockTime;
         double delx = amp * sin(2 * 3.14159 * BALL_OSCILLATION_FREQ * timeSinceBallLock);
 
-        ball.pos = (Vector2){paddle.rect.x + paddle.rect.width / 2 + delx, paddle.rect.y - ball.radius};
+        ball.pos = (Vector2){paddle.rect.x + paddle.rect.width / 2 + delx, paddle.rect.y - ball.radius - 1};
 
         // ball speed depends on displacement from center at the time
         ball.speed.x = (delx / amp) * INITIAL_BALL_SPEED.x;
@@ -881,12 +881,16 @@ void updateBall()
             // signed distance between ball center and paddle center
             double delx = ball.pos.x - (paddle.rect.x + paddle.rect.width / 2);
 
-            // add accelerated ball speed here
-            ball.speed.x = (ball.speed.x > 0 ? 1 : -1) * (fabs(delx) / (paddle.rect.width / 2)) * max(fabs(ball.speed.x), INITIAL_BALL_SPEED.x);
+            // accelerated speed based on distance from center
+            ball.speed.x = (ball.speed.x > 0 ? 1 : -1) * (fabs(delx) / (paddle.rect.width / 2)) * max(fabs(ball.speed.x), INITIAL_BALL_SPEED.x) * 2;
 
             // if dx and vx have opposite signs, flip vx
             if (delx > 0 != ball.speed.x > 0)
                 ball.speed.x *= -1;
+
+            // max speed from bouncing is accelerated speed
+            if (fabs(ball.speed.x) > fabs(ACCELERATED_BALL_SPEED.x))
+                ball.speed.x = (ball.speed.x > 0 ? 1 : -1) * fabs(ACCELERATED_BALL_SPEED.x);
         }
 
         manageBallAcceleration();
@@ -941,7 +945,7 @@ bool bounceBallOnPaddle()
         ball.pos.y + ball.radius >= paddle.rect.y)
     {
         ball.speed.y *= -1;
-        ball.pos.y = paddle.rect.y - (ball.radius + 1);
+        ball.pos.y = paddle.rect.y - ball.radius;
         collision = true;
     }
     else if (CheckCollisionCircleRec(ball.pos, ball.radius, (Rectangle){paddle.rect.x - 4, paddle.rect.y, paddle.rect.width + 8, paddle.rect.height}))
@@ -1043,7 +1047,9 @@ void degradeBrick(int brickIndex) {
 
     // standard bricks
     if (bricks[brickIndex].type > 0) {
-        increaseScore(BASE_BRICK_HIT_SCORE);
+        increaseScore(
+            BASE_BRICK_HIT_SCORE * (1 + (fabs(ball.speed.x) / fabs(ACCELERATED_BALL_SPEED.x) / 2))
+        );
 
         // degrade brick
         bricks[brickIndex].type--;
@@ -1148,10 +1154,13 @@ bool checkBallNBrickCollisions2()
     return collision;
 }
 
-// Increase player score based on score multiplier
+// Increase player score
 void increaseScore(int change)
 {
-    playerScore += change * scoreMultiplier;
+    // score based on speed
+    int increase = change * scoreMultiplier;
+
+    playerScore += increase;
 }
 
 // Check whether all breakable bricks in current map are destroyed
