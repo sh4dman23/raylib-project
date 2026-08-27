@@ -20,7 +20,7 @@
 #define GS_MAP_EDITOR 3  // 3 = map editor
 #define GS_HIGH_SCORES 4 // 4 = high scores
 
-// Main menu
+//* Main menu
 #define MAIN_MENU_LOGO_START 1
 #define MAIN_MENU_LOGO_END 31
 #define MAIN_MENU_BUTTON_WIDTH 200
@@ -84,7 +84,9 @@ typedef struct Ball
 Ball ball;
 
 Texture2D ballImage;
-const Vector2 INITIAL_BALL_SPEED = (Vector2){300.0, -350};
+const Vector2 INITIAL_BALL_SPEED = (Vector2) {300, -350};       // base starting speed
+const Vector2 ACCELERATED_BALL_SPEED = (Vector2) {350, -350};   // speed after which the ball will start decelerating
+const Vector2 BALL_DECELERATION = (Vector2) { 10, -10 };        // deceleration rate for ball
 // slow ball, fast ball speeds (to be implemented)
 
 const double BASE_BALL_RADIUS = 5.0;
@@ -165,7 +167,8 @@ const int NUMBER_OF_MUSIC_FILES = 5;
 int currMusicIndex = 0;
 Music currMusic;
 
-bool musicStopped = false;  // check whether
+// check whether music has just been stopped, flag reset after changing music
+bool musicStopped = false;
 
 /* Function Prototypes */
 void initializeGame();
@@ -195,6 +198,7 @@ void resetPaddle();
 
 void lockBall();
 void updateBall();
+void manageBallAcceleration();
 void updatePaddle();
 
 void checkAllCollisions();
@@ -884,6 +888,17 @@ void updateBall()
             if (delx > 0 != ball.speed.x > 0)
                 ball.speed.x *= -1;
         }
+
+        manageBallAcceleration();
+    }
+}
+
+void manageBallAcceleration() {
+    if (fabs(ball.speed.x) > fabs(ACCELERATED_BALL_SPEED.x)) {
+        const double dt = GetFrameTime();
+        const Vector2 initialSpeed = ball.speed;
+        ball.speed.x = (ball.speed.x > 0 ? 1 : -1) * (fabs(ball.speed.x) - BALL_DECELERATION.x * dt);
+        ball.speed.y = ball.speed.x * initialSpeed.y / initialSpeed.x;
     }
 }
 
@@ -1828,6 +1843,7 @@ void switchMusic(int musicIndex)
 
     char musicFile[strlen(MUSIC_FILES_PATH) + 10];
 
+    // check whether selected music index is valid
     if (musicIndex >= NUMBER_OF_MUSIC_FILES)
         currMusicIndex = 0;
     else if (musicIndex < 0)
@@ -1835,16 +1851,18 @@ void switchMusic(int musicIndex)
     else
         currMusicIndex = musicIndex;
 
+    // load music
     sprintf(musicFile, "%s/%d.mp3", MUSIC_FILES_PATH, currMusicIndex);
     currMusic = LoadMusicStream(musicFile);
     currMusic.looping = false;
 
+    // start playing
     PlayMusicStream(currMusic);
 
     //! unimplemented: game audio
     SetMusicVolume(currMusic, 1.0);
 
-    // unset music stopped flag
+    // reset music stopped flag
     musicStopped = false;
 }
 
@@ -1853,6 +1871,7 @@ void rotateMusic()
 {
     // Check whether music not playing and music not stopped earlier
     if (!IsMusicStreamPlaying(currMusic) && !musicStopped) {
+        // setting flag makes sure we dont switch multiple times before next music loads
         musicStopped = true;
         switchMusic(currMusicIndex + 1);
     }
