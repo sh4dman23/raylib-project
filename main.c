@@ -4,6 +4,7 @@
 #include <string.h>
 #include <time.h>
 #include <ctype.h>
+#include <stdlib.h>
 
 #define max(a, b) ((a) > (b) ? (a) : (b))
 #define min(a, b) ((a) < (b) ? (a) : (b))
@@ -114,11 +115,12 @@ Texture2D paddleImage;
 
 //* Perks
 #define PERKS_IMG_PATH "./assets/perks/"
+const Vector2 PERK_IMG_SIZE = {32, 30};
+
+const Vector2 PERK_SPEED = {0, 200};
 const double DELAY_AFTER_PERK_SPAWN = 2; // seconds
 const double TIMED_PERK_DURATION = 10;
-
-const Vector2 PERK_IMG_SIZE = {32, 30};
-const Vector2 PERK_SPEED = {0, 200};
+const int BASE_PERK_ACTIVATE_SCORE = 50;
 
 bool canSpawnPerk = true;
 
@@ -136,16 +138,14 @@ Perk perks[NUMBER_OF_PERKS] = {
     // Kill Paddle
     (Perk) {
         "killpaddle",
-        // 5,
-        0,
+        10,
         false,
     },
 
     // Extra Life
     (Perk) {
         "extralife",
-        // 0.5,
-        0,
+        0.5,
         false,
     },
 
@@ -276,6 +276,7 @@ void manageBallAcceleration();
 void updatePaddle();
 
 void killPaddle();
+void increaseLives();
 
 // Collisions
 void checkAllCollisions();
@@ -553,6 +554,7 @@ void checkMainMenuButtonClick(Vector2 mousePos)
 // Function called at start of program to initialize everything
 void initializeGame()
 {
+    srand(time(NULL));
     SetRandomSeed(time(NULL));
 
     initializeAllMaps();
@@ -1034,6 +1036,14 @@ void killPaddle() {
     checkGameEnd();
 }
 
+void increaseLives() {
+    if (lives >= STARTING_LIVES * 2)
+        return;
+
+    lives++;
+    //? play +life sound
+}
+
 // Reflect ball off of the paddle
 bool bounceBallOnPaddle()
 {
@@ -1307,6 +1317,39 @@ void activatePerk(int perkIndex) {
     canSpawnPerk = false;
     if (perks[perkIndex].timed)
         perks[perkIndex].duration = TIMED_PERK_DURATION;
+
+    // score
+    increaseScore(BASE_PERK_ACTIVATE_SCORE);
+    //? play sound
+
+    switch (perkIndex)
+    {
+    case 0: // Kill Paddle
+        killPaddle();
+        break;
+
+    case 1: // Extra life
+        increaseLives();
+        break;
+
+    case 2: //
+        break;
+
+    case 3: //
+        break;
+
+    case 4: //
+        break;
+
+    case 5: //
+        break;
+
+    case 6: //
+        break;
+
+    default:
+        break;
+    }
 }
 
 // Remove effects of perk
@@ -1337,7 +1380,14 @@ void spawnPerk(int brickIndex) {
         if (!Vector2Equals(perks[i].pos, (Vector2) {-1, -1}))
             continue;
 
-        if (GetRandomValue(1, 100) <= perks[i].spawnChance) {
+        // limit on extra lives
+        if (i == 1 && lives >= STARTING_LIVES * 2) {
+            continue;
+        }
+
+        // roll for rng
+        double roll = ((double)rand() / RAND_MAX) * 100;
+        if (roll != 0 && roll <= perks[i].spawnChance) {
             perks[i].pos = (Vector2) {
                 bricks[brickIndex].rect.x + (BRICK_WIDTH - PERK_IMG_SIZE.x) / 2,
                 bricks[brickIndex].rect.y
