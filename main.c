@@ -86,7 +86,7 @@ Ball ball;
 Texture2D ballImage;
 const Vector2 INITIAL_BALL_SPEED = (Vector2) {300, -350};       // base starting speed
 const Vector2 ACCELERATED_BALL_SPEED = (Vector2) {350, -350};   // speed after which the ball will start decelerating
-const Vector2 BALL_DECELERATION = (Vector2) { 10, -10 };        // deceleration rate for ball
+const Vector2 BALL_DECELERATION = (Vector2) { 15, 15 };        // deceleration rate for ball
 // slow ball, fast ball speeds (to be implemented)
 
 const double BASE_BALL_RADIUS = 5.0;
@@ -111,6 +111,76 @@ const int SPACE_BELOW_PADDLE = 5;              // pixels below paddle
 
 // paddle texture
 Texture2D paddleImage;
+
+//* Perks
+#define PERKS_IMG_PATH "./assets/perks/"
+const double DELAY_AFTER_PERK_SPAWN = 2; // seconds
+const double TIMED_PERK_DURATION = 10;
+
+const Vector2 PERK_IMG_SIZE = {32, 30};
+const Vector2 PERK_SPEED = {0, 200};
+
+bool canSpawnPerk = true;
+
+typedef struct Perk {
+    char filename[30];         // without .png
+    double spawnChance;     // in %
+    bool timed;
+    Vector2 pos;
+    double duration;        // remaining duration
+    Texture2D img;
+} Perk;
+
+#define NUMBER_OF_PERKS 6
+Perk perks[NUMBER_OF_PERKS] = {
+    // Kill Paddle
+    (Perk) {
+        "killpaddle",
+        // 5,
+        0,
+        false,
+    },
+
+    // Extra Life
+    (Perk) {
+        "extralife",
+        // 0.5,
+        0,
+        false,
+    },
+
+    // Double Points
+    (Perk) {
+        "doublepoints",
+        // 4,
+        0,
+        true,
+    },
+
+    // Fast Ball
+    (Perk) {
+        "fastball",
+        // 8,
+        0,
+        false,
+    },
+
+    // Expand Paddle
+    (Perk) {
+        "expandpaddle",
+        // 4,
+        0,
+        false,
+    },
+
+    // Shrink Paddle
+    (Perk) {
+        "shrinkpaddle",
+        // 4,
+        0,
+        false,
+    }
+};
 
 //* Bricks
 #define MAX_NUMBER_OF_BRICKS 1000
@@ -177,22 +247,26 @@ void manageDebugView();
 void manageGameStateChanges();
 void switchGameState(int state);
 
-// Main Menu
+//* Main Menu
 void manageMainMenuScreen();
 void createMainMenuButtons();
 void checkMainMenuButtonClick(Vector2 mousePos);
 
-// General updates
+//* General updates
 void updateLoop();
 
-// Non-core game interactions
+//* Non-core game interactions
 void manageGameEndUserInput();
 void resetAllInput();
 
-// Core Game Logic
+//* Core Game Logic
 void setNewGame();
 void setNewLevel();
 
+void checkLevelEnd();
+void checkGameEnd();
+
+// Ball and Paddle
 void resetBall();
 void resetPaddle();
 
@@ -201,6 +275,9 @@ void updateBall();
 void manageBallAcceleration();
 void updatePaddle();
 
+void killPaddle();
+
+// Collisions
 void checkAllCollisions();
 bool checkBallNBrickCollisions();
 void degradeBrick(int brickIndex);
@@ -208,17 +285,24 @@ void degradeBrick(int brickIndex);
 void bounceBallOnBoundaries();
 bool bounceBallOnPaddle();
 
+// Stats
 void updatePlayTime();
-
 void resetStats();
 void increaseScore(int change);
 
-void checkLevelEnd();
-void checkGameEnd();
+// Perks
+void resetPerks();
+void spawnPerk(int brickIndex);
+void updatePerks();
+void delayPerkSpawn();
+void activatePerk(int perkIndex);
+void deactivatePerk(int perkIndex);
+void checkPerkAndBrickCollision(int perkIndex);
 
+// Math
 double distancePointLine(Vector2 point, Vector2 lPoint1, Vector2 lPoint2);
 
-// Game Map
+//* Game Map
 void setEmptyMap();
 void initializeAllMaps();
 void initializeCurrentMap();
@@ -227,23 +311,23 @@ void switchToMap(int mapIndex);
 void readMapFromFile(FILE *mapFile);
 void writeMapToFile(FILE *outputFile);
 
-// Map Editor
+//* Map Editor
 void addNewMap();
 void deleteCurrentMap();
 void setMapEditor();
 void checkMapEdit();
 
-// High Scores
+//* High Scores
 void readHighScores();
 void sortHighScores();
 void saveNewScore();
 void writeHighScores();
 
-// Sprites
+//* Sprites
 void loadSprites();
 void unloadSprites();
 
-// Draw Functions
+//* Draw Functions
 void drawLoop();
 void drawMainGame();
 void drawDebugView();
@@ -255,13 +339,15 @@ void drawMainGameUI();
 void drawBall();
 void drawPaddle();
 void drawBricks();
+void drawPerks();
 
-// Music
+//* Music
 void updateAudio();
 void rotateMusic();
 void switchMusic(int musicIndex);
 void unloadAudio();
 void checkMusicChange();
+
 
 int main(void)
 {
@@ -324,6 +410,7 @@ void updateLoop()
     {
         updatePlayTime();
 
+        updatePerks();
         updatePaddle();
         updateBall();
 
@@ -466,13 +553,14 @@ void checkMainMenuButtonClick(Vector2 mousePos)
 // Function called at start of program to initialize everything
 void initializeGame()
 {
+    SetRandomSeed(time(NULL));
+
     initializeAllMaps();
     setNewGame();
     setMapEditor();
 
     readHighScores();
 
-    //! start playing music
     switchMusic(currMusicIndex);
 }
 
@@ -483,8 +571,11 @@ void setNewGame()
     currentMap = 0;
 
     initializeCurrentMap();
+
     resetPaddle();
     resetBall();
+    resetPerks();
+
     resetStats();
     resetAllInput();
 }
@@ -927,12 +1018,20 @@ void bounceBallOnBoundaries()
     }
     else if (ball.pos.y + ball.radius > GetScreenHeight())
     {
-        resetPaddle();
-        resetBall();
-        if (lives > 0)
-            lives--;
-        checkGameEnd();
+        killPaddle();
     }
+}
+
+// Ball falls below paddle
+void killPaddle() {
+    if (lives > 0)
+        lives--;
+
+    resetPaddle();
+    resetBall();
+
+    resetPerks();
+    checkGameEnd();
 }
 
 // Reflect ball off of the paddle
@@ -1058,6 +1157,8 @@ void degradeBrick(int brickIndex) {
         if (bricks[brickIndex].type == 0)
             breakableBricksLeft--;
     }
+
+    spawnPerk(brickIndex);
 }
 
 // [Deprecated - DO NOT USE] Check collision between ball and bricks
@@ -1152,6 +1253,106 @@ bool checkBallNBrickCollisions2()
     }
 
     return collision;
+}
+
+// Manage perk positions and durations
+void updatePerks() {
+    const double dt = GetFrameTime();
+    delayPerkSpawn();
+
+    // durations
+    for (int i = 0; i < NUMBER_OF_PERKS; i++) {
+        if (perks[i].duration == 0)
+            continue;
+
+        perks[i].duration -= dt;
+        if (perks[i].duration <= 0) {
+            deactivatePerk(i);
+            perks[i].duration = 0;
+        }
+    }
+
+    // positions
+    for (int i = 0; i < NUMBER_OF_PERKS; i++) {
+        // despawn perk
+        if (perks[i].pos.x <= 0 || perks[i].pos.x + PERK_IMG_SIZE.x >= GetScreenWidth() ||
+            perks[i].pos.y <= 0 || perks[i].pos.y + PERK_IMG_SIZE.y >= GetScreenHeight())
+        {
+            perks[i].pos = (Vector2) {-1, -1};
+        }
+        else {
+            perks[i].pos = Vector2Add(perks[i].pos, Vector2Scale(PERK_SPEED, dt));
+        }
+
+        checkPerkAndBrickCollision(i);
+    }
+}
+
+// Check collisions between perk and brick
+void checkPerkAndBrickCollision(int perkIndex) {
+    bool collision = CheckCollisionRecs(
+        (Rectangle) {perks[perkIndex].pos.x, perks[perkIndex].pos.y, PERK_IMG_SIZE.x, PERK_IMG_SIZE.y},
+        paddle.rect
+    );
+
+    if (collision) {
+        // despawn and activate
+        perks[perkIndex].pos = (Vector2) {-1, -1};
+        activatePerk(perkIndex);
+    }
+}
+
+// Activate effects of perk
+void activatePerk(int perkIndex) {
+    canSpawnPerk = false;
+    if (perks[perkIndex].timed)
+        perks[perkIndex].duration = TIMED_PERK_DURATION;
+}
+
+// Remove effects of perk
+void deactivatePerk(int perkIndex) {
+    perks[perkIndex].duration = 0;
+}
+
+// Manage delay for perk spawn
+void delayPerkSpawn() {
+    static double time = 0;
+    if (canSpawnPerk)
+        return;
+
+    time += GetFrameTime();
+    if (time > DELAY_AFTER_PERK_SPAWN) {
+        time = 0;
+        canSpawnPerk = true;
+    }
+}
+
+// Spawn perk after collision with brick
+void spawnPerk(int brickIndex) {
+    if (!canSpawnPerk)
+        return;
+
+    for (int i = 0; i < NUMBER_OF_PERKS; i++) {
+        // perk already on screen => no spawn
+        if (!Vector2Equals(perks[i].pos, (Vector2) {-1, -1}))
+            continue;
+
+        if (GetRandomValue(1, 100) <= perks[i].spawnChance) {
+            perks[i].pos = (Vector2) {
+                bricks[brickIndex].rect.x + (BRICK_WIDTH - PERK_IMG_SIZE.x) / 2,
+                bricks[brickIndex].rect.y
+            };
+
+            return;
+        }
+    }
+}
+
+void resetPerks() {
+    for (int i = 0; i < NUMBER_OF_PERKS; i++) {
+        perks[i].duration = 0;
+        perks[i].pos = (Vector2) {-1, -1};
+    }
 }
 
 // Increase player score
@@ -1391,6 +1592,13 @@ void loadSprites()
         sprintf(brickTextureFilePath, "%s/%d.png", BRICK_TEXTURES_PATH, i);
         brickTextures[brickTextureIndex] = LoadTexture(brickTextureFilePath);
     }
+
+    // perks
+    for (int i = 0; i < NUMBER_OF_PERKS; i++) {
+        char filename[50];
+        sprintf(filename, "%s%s.png", PERKS_IMG_PATH, perks[i].filename);
+        perks[i].img = LoadTexture(filename);
+    }
 }
 
 // Inverse function to loadSprites(); unloads all sprites
@@ -1410,6 +1618,9 @@ void unloadSprites()
 
     for (int i = 0; i <= NUM_BRICK_TEXTURES; i++)
         UnloadTexture(brickTextures[i]);
+
+    for (int i = 0; i < NUMBER_OF_PERKS; i++)
+        UnloadTexture(perks[i].img);
 }
 
 // Contains all draw calls; func called inside game loop
@@ -1441,6 +1652,7 @@ void drawMainGame() {
     drawPaddle();
     drawBall();
     drawBricks();
+    drawPerks();
     if (debugView)
         drawDebugView();
     else
@@ -1499,6 +1711,15 @@ void drawBricks()
 
         // draw brick
         DrawTextureEx(brickImage, (Vector2){bricks[i].rect.x, bricks[i].rect.y}, 0.0f, 1.0f, WHITE);
+    }
+}
+
+void drawPerks() {
+    for (int i = 0; i < NUMBER_OF_PERKS; i++) {
+        if (perks[i].pos.x != -1 && perks[i].pos.y != -1) {
+            // DrawRectangle(perks[i].pos.x, perks[i].pos.y, 32, 30, WHITE);
+            DrawTextureEx(perks[i].img, perks[i].pos, 0, 1, WHITE);
+        }
     }
 }
 
