@@ -99,19 +99,25 @@ const double BALL_OSCILLATION_FREQ = 1.0; // oscillations per second
 //* Paddle
 typedef struct Paddle
 {
-    Rectangle rect; // posx, posy, width, height
-    Vector2 speed;
+    Rectangle rect;         // posx, posy, width, height
+    Vector2 speed;          // paddle speed
+    Texture2D image;  // paddle texture
 } Paddle;
 
-Paddle paddle;
+#define NUMBER_OF_PADDLES 3
+#define BASE_PADDLE 0
+#define EXPANDED_PADDLE 1
+#define SHRUNK_PADDLE 2
+
+Paddle paddles[3];
+
+int currentPaddle = BASE_PADDLE;
 
 const int BASE_PADDLE_WIDTH = 74;
 const int BASE_PADDLE_HEIGHT = 15;
 const Vector2 PADDLE_SPEED = (Vector2){10, 0}; //* unit: pixels per key input
 const int SPACE_BELOW_PADDLE = 5;              // pixels below paddle
 
-// paddle texture
-Texture2D paddleImage;
 
 //* Perks
 #define PERKS_IMG_PATH "./assets/perks/"
@@ -125,11 +131,11 @@ const int BASE_PERK_ACTIVATE_SCORE = 50;
 bool canSpawnPerk = true;
 
 typedef struct Perk {
-    char filename[30];         // without .png
-    double spawnChance;     // in %
+    char filename[30];          // without .png
+    double spawnChance;         // in %
     bool timed;
     Vector2 pos;
-    double duration;        // remaining duration
+    double duration;            // remaining duration
     Texture2D img;
 } Perk;
 
@@ -152,8 +158,7 @@ Perk perks[NUMBER_OF_PERKS] = {
     // Double Points
     (Perk) {
         "doublepoints",
-        // 4,
-        0,
+        4,
         true,
     },
 
@@ -273,6 +278,8 @@ void resetPaddle();
 void lockBall();
 void updateBall();
 void manageBallAcceleration();
+
+void switchPaddle(int type);
 void updatePaddle();
 
 void killPaddle();
@@ -359,9 +366,10 @@ int main(void)
 
     SetTargetFPS(60);
 
+    loadSprites();
+
     // initialize game
     initializeGame();
-    loadSprites();
 
     // make it so, esc key doesn't close the game
     SetExitKey(KEY_NULL);
@@ -901,20 +909,42 @@ void checkMapEdit()
 void resetBall()
 {
     lockBall();
-    ball.pos = (Vector2){paddle.rect.x + paddle.rect.width / 2, paddle.rect.y - ball.radius};
+    ball.pos = (Vector2){paddles[currentPaddle].rect.x + paddles[currentPaddle].rect.width / 2, paddles[currentPaddle].rect.y - ball.radius};
     ball.speed = INITIAL_BALL_SPEED;
     ball.radius = BASE_BALL_RADIUS;
 }
 
-// Reset paddle to starting position
+// Switch paddle at current position
+void switchPaddle(int type)
+{
+    if (type < 0 || type > NUMBER_OF_PADDLES)
+        return;
+
+    Rectangle oldRec = paddles[currentPaddle].rect;
+    paddles[type].rect = (Rectangle) {
+        oldRec.x + oldRec.width - paddles[type].image.width,
+        oldRec.y + oldRec.height - paddles[type].image.height,
+        paddles[type].image.width,
+        paddles[type].image.height
+    };
+    paddles[type].speed = PADDLE_SPEED;
+
+    currentPaddle = type;
+}
+
+// Reset paddle to starting position and base type
 void resetPaddle()
 {
-    paddle.rect = (Rectangle){
-        (GetScreenWidth() - BASE_PADDLE_WIDTH) / 2,
-        GetScreenHeight() - BASE_PADDLE_HEIGHT - SPACE_BELOW_PADDLE,
-        BASE_PADDLE_WIDTH,
-        BASE_PADDLE_HEIGHT};
-    paddle.speed = PADDLE_SPEED;
+    switchPaddle(BASE_PADDLE);
+
+    paddles[currentPaddle].rect = (Rectangle) {
+        (GetScreenWidth() - paddles[currentPaddle].image.width) / 2,
+        GetScreenHeight() - paddles[currentPaddle].image.height - SPACE_BELOW_PADDLE,
+        paddles[currentPaddle].image.width,
+        paddles[currentPaddle].image.height
+    };
+
+    paddles[currentPaddle].speed = PADDLE_SPEED;
 }
 
 // Lock ball to paddle
@@ -931,11 +961,11 @@ void updateBall()
     if (ballLockedToPaddle)
     {
         // oscillate ball
-        double amp = paddle.rect.width / 2.0 - ball.radius;
+        double amp = paddles[currentPaddle].rect.width / 2.0 - ball.radius;
         double timeSinceBallLock = GetTime() - lastBallLockTime;
         double delx = amp * sin(2 * 3.14159 * BALL_OSCILLATION_FREQ * timeSinceBallLock);
 
-        ball.pos = (Vector2){paddle.rect.x + paddle.rect.width / 2 + delx, paddle.rect.y - ball.radius - 1};
+        ball.pos = (Vector2){paddles[currentPaddle].rect.x + paddles[currentPaddle].rect.width / 2 + delx, paddles[currentPaddle].rect.y - ball.radius - 1};
 
         // ball speed depends on displacement from center at the time
         ball.speed.x = (delx / amp) * INITIAL_BALL_SPEED.x;
@@ -972,10 +1002,10 @@ void updateBall()
         if (bounceBallOnPaddle())
         {
             // signed distance between ball center and paddle center
-            double delx = ball.pos.x - (paddle.rect.x + paddle.rect.width / 2);
+            double delx = ball.pos.x - (paddles[currentPaddle].rect.x + paddles[currentPaddle].rect.width / 2);
 
             // accelerated speed based on distance from center
-            ball.speed.x = (ball.speed.x > 0 ? 1 : -1) * (fabs(delx) / (paddle.rect.width / 2)) * max(fabs(ball.speed.x), INITIAL_BALL_SPEED.x) * 2;
+            ball.speed.x = (ball.speed.x > 0 ? 1 : -1) * (fabs(delx) / (paddles[currentPaddle].rect.width / 2)) * max(fabs(ball.speed.x), INITIAL_BALL_SPEED.x) * 2;
 
             // if dx and vx have opposite signs, flip vx
             if (delx > 0 != ball.speed.x > 0)
@@ -1028,6 +1058,7 @@ void bounceBallOnBoundaries()
 void killPaddle() {
     if (lives > 0)
         lives--;
+    scoreMultiplier = 1.0;
 
     resetPaddle();
     resetBall();
@@ -1050,14 +1081,14 @@ bool bounceBallOnPaddle()
     bool collision = false;
 
     // 4 pixels of extra length on both sides to allow for fairer jump
-    if (ball.pos.x >= paddle.rect.x - 4 && ball.pos.x <= paddle.rect.x + paddle.rect.width + 4 &&
-        ball.pos.y + ball.radius >= paddle.rect.y)
+    if (ball.pos.x >= paddles[currentPaddle].rect.x - 4 && ball.pos.x <= paddles[currentPaddle].rect.x + paddles[currentPaddle].rect.width + 4 &&
+        ball.pos.y + ball.radius >= paddles[currentPaddle].rect.y)
     {
         ball.speed.y *= -1;
-        ball.pos.y = paddle.rect.y - ball.radius;
+        ball.pos.y = paddles[currentPaddle].rect.y - ball.radius;
         collision = true;
     }
-    else if (CheckCollisionCircleRec(ball.pos, ball.radius, (Rectangle){paddle.rect.x - 4, paddle.rect.y, paddle.rect.width + 8, paddle.rect.height}))
+    else if (CheckCollisionCircleRec(ball.pos, ball.radius, (Rectangle){paddles[currentPaddle].rect.x - 4, paddles[currentPaddle].rect.y, paddles[currentPaddle].rect.width + 8, paddles[currentPaddle].rect.height}))
     {
         ball.speed.y *= -1;
         collision = true;
@@ -1075,21 +1106,21 @@ void updatePaddle()
 
     // move paddle sideways
     if (IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_A))
-        paddle.rect.x -= paddle.speed.x;
+        paddles[currentPaddle].rect.x -= paddles[currentPaddle].speed.x;
     else if (IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D))
-        paddle.rect.x += paddle.speed.x;
+        paddles[currentPaddle].rect.x += paddles[currentPaddle].speed.x;
 
     // check collisions with ball since its fast moving
     bounceBallOnPaddle();
 
     // bound within the walls
-    if (paddle.rect.x < 0)
+    if (paddles[currentPaddle].rect.x < 0)
     {
-        paddle.rect.x = 0;
+        paddles[currentPaddle].rect.x = 0;
     }
-    else if (paddle.rect.x + paddle.rect.width > GetScreenWidth())
+    else if (paddles[currentPaddle].rect.x + paddles[currentPaddle].rect.width > GetScreenWidth())
     {
-        paddle.rect.x = GetScreenWidth() - paddle.rect.width;
+        paddles[currentPaddle].rect.x = GetScreenWidth() - paddles[currentPaddle].rect.width;
     }
 }
 
@@ -1277,8 +1308,8 @@ void updatePerks() {
 
         perks[i].duration -= dt;
         if (perks[i].duration <= 0) {
-            deactivatePerk(i);
             perks[i].duration = 0;
+            deactivatePerk(i);
         }
     }
 
@@ -1302,7 +1333,7 @@ void updatePerks() {
 void checkPerkAndBrickCollision(int perkIndex) {
     bool collision = CheckCollisionRecs(
         (Rectangle) {perks[perkIndex].pos.x, perks[perkIndex].pos.y, PERK_IMG_SIZE.x, PERK_IMG_SIZE.y},
-        paddle.rect
+        paddles[currentPaddle].rect
     );
 
     if (collision) {
@@ -1315,8 +1346,6 @@ void checkPerkAndBrickCollision(int perkIndex) {
 // Activate effects of perk
 void activatePerk(int perkIndex) {
     canSpawnPerk = false;
-    if (perks[perkIndex].timed)
-        perks[perkIndex].duration = TIMED_PERK_DURATION;
 
     // score
     increaseScore(BASE_PERK_ACTIVATE_SCORE);
@@ -1332,7 +1361,9 @@ void activatePerk(int perkIndex) {
         increaseLives();
         break;
 
-    case 2: //
+    case 2: // Double points
+        if (perks[2].duration <= 0)
+            scoreMultiplier *= 2;
         break;
 
     case 3: //
@@ -1350,11 +1381,43 @@ void activatePerk(int perkIndex) {
     default:
         break;
     }
+
+    // set duration to max initial duration
+    if (perks[perkIndex].timed)
+        perks[perkIndex].duration = TIMED_PERK_DURATION;
 }
 
 // Remove effects of perk
 void deactivatePerk(int perkIndex) {
     perks[perkIndex].duration = 0;
+
+    switch (perkIndex)
+    {
+    case 0: // Kill Paddle
+        break;
+
+    case 1: // Extra life
+        break;
+
+    case 2: // Double points
+        scoreMultiplier /= 2;
+        break;
+
+    case 3: //
+        break;
+
+    case 4: //
+        break;
+
+    case 5: //
+        break;
+
+    case 6: //
+        break;
+
+    default:
+        break;
+    }
 }
 
 // Manage delay for perk spawn
@@ -1515,10 +1578,6 @@ void readHighScores() {
     // sort high scores
     sortHighScores();
 
-    //! debug
-    for (int i = 0; i < numHighScores; i++)
-        TraceLog(LOG_DEBUG, "%s", highScores[i].name);
-
     fclose(hsFile);
 }
 
@@ -1621,7 +1680,13 @@ void loadSprites()
     // main game ui
     lifeTexture = LoadTexture("./assets/ui/life.png");
     ballImage = LoadTexture("./assets/ball.png");
-    paddleImage = LoadTexture("./assets/paddles/0.png"); // base paddle
+
+    // paddles
+    for (int i = 0; i < NUMBER_OF_PADDLES; i++) {
+        char filename[50];
+        sprintf(filename, "./assets/paddles/%d.png", i);
+        paddles[i].image = LoadTexture(filename);
+    }
 
     // high score title
     highScoresTitleImage = LoadTexture("./assets/ui/highScores.png");
@@ -1662,7 +1727,9 @@ void unloadSprites()
 
     UnloadTexture(lifeTexture);
     UnloadTexture(ballImage);
-    UnloadTexture(paddleImage);
+
+    for (int i = 0; i < NUMBER_OF_PADDLES; i++)
+        UnloadTexture(paddles[i].image);
 
     UnloadTexture(highScoresTitleImage);
 
@@ -1742,7 +1809,7 @@ void drawBall()
 
 void drawPaddle()
 {
-    DrawTextureEx(paddleImage, (Vector2){paddle.rect.x, paddle.rect.y}, 0.0f, 1.0f, WHITE);
+    DrawTextureEx(paddles[currentPaddle].image, (Vector2){paddles[currentPaddle].rect.x, paddles[currentPaddle].rect.y}, 0.0f, 1.0f, WHITE);
 }
 
 // Draw bricks at positions based on type
@@ -2067,7 +2134,7 @@ void drawDebugView()
 
     // outlines
     DrawCircleLinesV(ball.pos, ball.radius, RED);
-    DrawRectangleLinesEx((Rectangle){paddle.rect.x - 4, paddle.rect.y - 2, paddle.rect.width + 8, paddle.rect.height + 4}, 1, RED);
+    DrawRectangleLinesEx((Rectangle){paddles[currentPaddle].rect.x - 4, paddles[currentPaddle].rect.y - 2, paddles[currentPaddle].rect.width + 8, paddles[currentPaddle].rect.height + 4}, 1, RED);
 
     // stats
     char fpsText[20] = {'\0'};
