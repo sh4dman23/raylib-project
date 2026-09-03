@@ -1076,7 +1076,7 @@ void manageBallAcceleration() {
     Vector2 oldSpeed = ball.speed;
 
     // acceleration on x
-    if (fabs(ball.speed.x) < fabs(ACCELERATED_BALL_SPEED.x)) {
+    if (fabs(ball.speed.x) < fabs(INITIAL_BALL_SPEED.x)) {
         ball.speed.x = (ball.speed.x > 0 ? 1 : -1) * (fabs(ball.speed.x) + fabs(BALL_ACCELERATION.x) * dt);
         ball.speed.y = ball.speed.x * initialSpeed.y / initialSpeed.x;
         if (fabs(ball.speed.y) > fabs(ACCELERATED_BALL_SPEED.y))
@@ -1084,8 +1084,7 @@ void manageBallAcceleration() {
     }
 
     // acceleration on y
-    if (fabs(ball.speed.y) < fabs(ACCELERATED_BALL_SPEED.y)) {
-        printf("accy\n");
+    if (fabs(ball.speed.y) < fabs(INITIAL_BALL_SPEED.y)) {
         ball.speed.y = (ball.speed.y > 0 ? 1 : -1) * (fabs(ball.speed.y) + fabs(BALL_ACCELERATION.y) * dt);
         ball.speed.x = ball.speed.y * initialSpeed.x / initialSpeed.y;
         if (fabs(ball.speed.x) > fabs(ACCELERATED_BALL_SPEED.x))
@@ -1100,7 +1099,6 @@ void manageBallAcceleration() {
 
     // deceleration on y
     if (fabs(ball.speed.y) > fabs(ACCELERATED_BALL_SPEED.y)) {
-        printf("decy\n");
         ball.speed.y = (ball.speed.y > 0 ? 1 : -1) * (fabs(ball.speed.y) - fabs(BALL_ACCELERATION.y) * dt);
         ball.speed.x = ball.speed.y * initialSpeed.x / initialSpeed.y;
     }
@@ -1470,6 +1468,12 @@ void activatePerk(int perkIndex)
     else if (strcmp(name, "fastball") == 0) {
         double fastSpeed = max(Vector2Length(ACCELERATED_BALL_SPEED) * 1.2, Vector2Length(ball.speed));
         ball.speed = Vector2Scale(Vector2Normalize(ball.speed), fastSpeed);
+
+        // limitation (based on high y velocity)
+        if (fabs(ball.speed.y) > fabs(ACCELERATED_BALL_SPEED.y)) {
+            ball.speed.y = (ball.speed.y > 0 ? 1 : -1) * fabs(ACCELERATED_BALL_SPEED.y);
+            ball.speed.x = ball.speed.x / fabs(ball.speed.y) * fabs(ACCELERATED_BALL_SPEED.y);
+        }
     }
 
     // set duration to max initial duration
@@ -1579,7 +1583,6 @@ void checkLevelEnd()
     {
         lockBall();
         switchGameState(GS_GAME_END);
-        printf("%d\n", gameState);
     }
 }
 
