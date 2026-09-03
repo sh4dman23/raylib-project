@@ -123,10 +123,8 @@ Paddle paddles[3];
 
 int currentPaddle = BASE_PADDLE;
 
-const int BASE_PADDLE_WIDTH = 74;
-const int BASE_PADDLE_HEIGHT = 15;
-const Vector2 PADDLE_SPEED = (Vector2){10, 0}; //* unit: pixels per key input
-const int SPACE_BELOW_PADDLE = 5;              // pixels below paddle
+const Vector2 PADDLE_SPEED = (Vector2){10 * 60, 0}; //* unit: pixels per second
+const int SPACE_BELOW_PADDLE = 5;                   // pixels below paddle
 
 
 //* Perks
@@ -1084,7 +1082,7 @@ void manageBallAcceleration() {
     if (fabs(ball.speed.x) < fabs(INITIAL_BALL_SPEED.x)) {
         ball.speed.x = (ball.speed.x > 0 ? 1 : -1) * (fabs(ball.speed.x) + fabs(BALL_ACCELERATION.x) * dt);
         ball.speed.y = ball.speed.x * initialSpeed.y / initialSpeed.x;
-        if (fabs(ball.speed.y) > fabs(ACCELERATED_BALL_SPEED.y))
+        if (fabs(ball.speed.y) > fabs(INITIAL_BALL_SPEED.y))
             ball.speed = oldSpeed;
     }
 
@@ -1189,11 +1187,13 @@ void updatePaddle()
     // check collisions with ball since its fast moving
     bounceBallOnPaddle();
 
+    const double dt = GetFrameTime();
+
     // move paddle sideways
     if (IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_A))
-        paddles[currentPaddle].rect.x -= paddles[currentPaddle].speed.x;
+        paddles[currentPaddle].rect.x -= paddles[currentPaddle].speed.x * dt;
     else if (IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D))
-        paddles[currentPaddle].rect.x += paddles[currentPaddle].speed.x;
+        paddles[currentPaddle].rect.x += paddles[currentPaddle].speed.x * dt;
 
     // bound within the walls
     if (paddles[currentPaddle].rect.x < 0)
@@ -2267,9 +2267,12 @@ void drawDebugView()
     if (!debugView)
         return;
 
-    // outlines
+    // ball and paddle outline
     DrawCircleLinesV(ball.pos, ball.radius, RED);
     DrawRectangleLinesEx((Rectangle){paddles[currentPaddle].rect.x - 4, paddles[currentPaddle].rect.y, paddles[currentPaddle].rect.width + 8, paddles[currentPaddle].rect.height}, 1, RED);
+
+    // ball direction
+    DrawLineEx(ball.pos, Vector2Add(ball.pos, Vector2Scale(Vector2Normalize(ball.speed), 10 * ball.radius)), 2, WHITE);
 
     // stats
     char textStr[50] = {'\0'};
