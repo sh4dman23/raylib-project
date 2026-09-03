@@ -24,6 +24,8 @@
 //* Main menu
 #define MAIN_MENU_LOGO_START 1
 #define MAIN_MENU_LOGO_END 31
+#define MAIN_MENU_BALL_START 1
+#define MAIN_MENU_BALL_END 14
 #define MAIN_MENU_BUTTON_WIDTH 200
 #define MAIN_MENU_BUTTON_HEIGHT 40
 #define MAIN_MENU_TEXTURES_PATH "./assets/main_menu/"
@@ -31,8 +33,16 @@
 int gameState = GS_MAIN_MENU;
 bool exitGame = false;
 
+int mainMenuLogoCurrentFrame = 0;
+const float mainMenuLogoFrameTime = 0.065f;
+float mainMenuLogoTimer = 0.0f;
+int mainMenuBallCurrentFrame = 0;
+const float mainMenuBallFrameTime = (mainMenuLogoFrameTime / MAIN_MENU_LOGO_END) * MAIN_MENU_BALL_END / 1.8;
+float mainMenuBallTimer = 0.0f;
+
 // Texture for main menu
 Texture2D mainMenuLogo[MAIN_MENU_LOGO_END];
+Texture2D mainMenuBall[MAIN_MENU_BALL_END];
 
 //* Core game statistics
 int playerScore = 0;
@@ -70,9 +80,9 @@ typedef struct HSEntry
 } HSEntry;
 
 HSEntry highScores[MAX_HIGH_SCORES];
-int numHighScores = 0;                  // store how many high scores are present in memory
+int numHighScores = 0; // store how many high scores are present in memory
 
-Texture2D highScoresTitleImage;         // image for high scores title
+Texture2D highScoresTitleImage; // image for high scores title
 
 //* Ball
 typedef struct Ball
@@ -85,9 +95,9 @@ typedef struct Ball
 Ball ball;
 
 Texture2D ballImage;
-const Vector2 INITIAL_BALL_SPEED = (Vector2) {300, -350};       // base starting speed
-const Vector2 ACCELERATED_BALL_SPEED = (Vector2) {350, -350};   // speed after which the ball will start decelerating
-const Vector2 BALL_DECELERATION = (Vector2) { 15, 15 };        // deceleration rate for ball
+const Vector2 INITIAL_BALL_SPEED = (Vector2){300, -350};     // base starting speed
+const Vector2 ACCELERATED_BALL_SPEED = (Vector2){350, -350}; // speed after which the ball will start decelerating
+const Vector2 BALL_DECELERATION = (Vector2){15, 15};         // deceleration rate for ball
 // slow ball, fast ball speeds (to be implemented)
 
 const double BASE_BALL_RADIUS = 5.0;
@@ -124,33 +134,34 @@ const int BASE_PERK_ACTIVATE_SCORE = 50;
 
 bool canSpawnPerk = true;
 
-typedef struct Perk {
-    char filename[30];         // without .png
-    double spawnChance;     // in %
+typedef struct Perk
+{
+    char filename[30];  // without .png
+    double spawnChance; // in %
     bool timed;
     Vector2 pos;
-    double duration;        // remaining duration
+    double duration; // remaining duration
     Texture2D img;
 } Perk;
 
 #define NUMBER_OF_PERKS 6
 Perk perks[NUMBER_OF_PERKS] = {
     // Kill Paddle
-    (Perk) {
+    (Perk){
         "killpaddle",
         10,
         false,
     },
 
     // Extra Life
-    (Perk) {
+    (Perk){
         "extralife",
         0.5,
         false,
     },
 
     // Double Points
-    (Perk) {
+    (Perk){
         "doublepoints",
         // 4,
         0,
@@ -158,7 +169,7 @@ Perk perks[NUMBER_OF_PERKS] = {
     },
 
     // Fast Ball
-    (Perk) {
+    (Perk){
         "fastball",
         // 8,
         0,
@@ -166,7 +177,7 @@ Perk perks[NUMBER_OF_PERKS] = {
     },
 
     // Expand Paddle
-    (Perk) {
+    (Perk){
         "expandpaddle",
         // 4,
         0,
@@ -174,13 +185,12 @@ Perk perks[NUMBER_OF_PERKS] = {
     },
 
     // Shrink Paddle
-    (Perk) {
+    (Perk){
         "shrinkpaddle",
         // 4,
         0,
         false,
-    }
-};
+    }};
 
 //* Bricks
 #define MAX_NUMBER_OF_BRICKS 1000
@@ -197,7 +207,7 @@ int maxBrickRows = (WINDOW_HEIGHT - PADDING_ABOVE_MAP - PADDING_BELOW_MAP) / BRI
 int maxBrickCols = (WINDOW_WIDTH - PADDING_ON_MAP_SIDES * 2) / BRICK_WIDTH;
 int numBricks;
 
-int breakableBricksLeft = 0;    // number of bricks remaining until level ends
+int breakableBricksLeft = 0; // number of bricks remaining until level ends
 
 // brick types = 0 (empty), 1, 2, 3 (standard), -1 (unbreakable)
 typedef struct Brick
@@ -249,6 +259,7 @@ void switchGameState(int state);
 
 //* Main Menu
 void manageMainMenuScreen();
+void mainMenuLogoAnimations();
 void createMainMenuButtons();
 void checkMainMenuButtonClick(Vector2 mousePos);
 
@@ -349,7 +360,6 @@ void switchMusic(int musicIndex);
 void unloadAudio();
 void checkMusicChange();
 
-
 int main(void)
 {
     SetTraceLogLevel(LOG_ALL);
@@ -395,6 +405,7 @@ void manageMainMenuScreen()
         return;
 
     ClearBackground(BLACK);
+    mainMenuLogoAnimations();
     createMainMenuButtons();
 }
 
@@ -402,7 +413,8 @@ void manageMainMenuScreen()
 void updateLoop()
 {
     // main menu
-    if (gameState == GS_MAIN_MENU) {
+    if (gameState == GS_MAIN_MENU)
+    {
         manageMainMenuScreen();
     }
 
@@ -447,7 +459,8 @@ void manageGameStateChanges()
     }
 
     // escape key pressed from any game state except main menu
-    if (gameState != GS_MAIN_MENU && IsKeyPressed(KEY_ESCAPE)) {
+    if (gameState != GS_MAIN_MENU && IsKeyPressed(KEY_ESCAPE))
+    {
         switchGameState(GS_MAIN_MENU);
     }
 }
@@ -466,7 +479,8 @@ void switchGameState(int state)
     }
 
     // main game -> main menu
-    if (gameState == GS_MAIN_GAME && state == GS_MAIN_MENU) {
+    if (gameState == GS_MAIN_GAME && state == GS_MAIN_MENU)
+    {
         // erase progress
         setNewGame();
     }
@@ -491,6 +505,33 @@ void switchGameState(int state)
     }
 
     gameState = state;
+}
+
+// main menu animations
+void mainMenuLogoAnimations()
+{
+    float frameTime = GetFrameTime();
+    mainMenuLogoTimer += frameTime;
+    mainMenuBallTimer += frameTime;
+    if (mainMenuLogoTimer >= mainMenuLogoFrameTime)
+    {
+        mainMenuLogoTimer = 0.0f;
+        mainMenuLogoCurrentFrame = (mainMenuLogoCurrentFrame + 1) % MAIN_MENU_LOGO_END;
+    }
+    if (mainMenuBallTimer >= mainMenuBallFrameTime)
+    {
+        mainMenuBallTimer = 0.0f;
+        mainMenuBallCurrentFrame = (mainMenuBallCurrentFrame + 1) % MAIN_MENU_BALL_END;
+    }
+
+    for (int i = MAIN_MENU_LOGO_START - 1; i < MAIN_MENU_LOGO_END; i++)
+    {
+        DrawTexture(mainMenuLogo[mainMenuLogoCurrentFrame], (WINDOW_WIDTH - 600) / 2, WINDOW_HEIGHT / 2 - 230, WHITE);
+    }
+    for (int i = MAIN_MENU_BALL_START - 1; i < MAIN_MENU_BALL_END; i++)
+    {
+        DrawTexture(mainMenuBall[mainMenuBallCurrentFrame], WINDOW_WIDTH - 180, WINDOW_HEIGHT - 180, WHITE);
+    }
 }
 
 // main menu buttons for changing states
@@ -990,8 +1031,10 @@ void updateBall()
     }
 }
 
-void manageBallAcceleration() {
-    if (fabs(ball.speed.x) > fabs(ACCELERATED_BALL_SPEED.x)) {
+void manageBallAcceleration()
+{
+    if (fabs(ball.speed.x) > fabs(ACCELERATED_BALL_SPEED.x))
+    {
         const double dt = GetFrameTime();
         const Vector2 initialSpeed = ball.speed;
         ball.speed.x = (ball.speed.x > 0 ? 1 : -1) * (fabs(ball.speed.x) - BALL_DECELERATION.x * dt);
@@ -1025,7 +1068,8 @@ void bounceBallOnBoundaries()
 }
 
 // Ball falls below paddle
-void killPaddle() {
+void killPaddle()
+{
     if (lives > 0)
         lives--;
 
@@ -1036,7 +1080,8 @@ void killPaddle() {
     checkGameEnd();
 }
 
-void increaseLives() {
+void increaseLives()
+{
     if (lives >= STARTING_LIVES * 2)
         return;
 
@@ -1101,10 +1146,12 @@ void checkAllCollisions()
 }
 
 // Check collision between ball and bricks
-bool checkBallNBrickCollisions() {
+bool checkBallNBrickCollisions()
+{
     bool collision = false;
 
-    for (int i = 0; i < numBricks; i++) {
+    for (int i = 0; i < numBricks; i++)
+    {
 
         // no collisions for empty bricks
         if (bricks[i].type == 0 || !CheckCollisionCircleRec(ball.pos, ball.radius, bricks[i].rect))
@@ -1120,23 +1167,29 @@ bool checkBallNBrickCollisions() {
         double overlapX = (BRICK_WIDTH / 2 + ball.radius) - fabs(dX);
         double overlapY = (BRICK_HEIGHT / 2 + ball.radius) - fabs(dY);
 
-        if (overlapX <= overlapY) {
-            if (dX > 0) {
+        if (overlapX <= overlapY)
+        {
+            if (dX > 0)
+            {
                 ball.speed.x *= -1;
                 ball.pos.x = bricks[i].rect.x + BRICK_WIDTH + ball.radius + 1;
             }
-            else {
+            else
+            {
                 ball.speed.x *= -1;
                 ball.pos.x = bricks[i].rect.x - ball.radius - 1;
             }
         }
 
-        if (overlapY <= overlapX) {
-            if (dY > 0) {
+        if (overlapY <= overlapX)
+        {
+            if (dY > 0)
+            {
                 ball.speed.y *= -1;
                 ball.pos.y = bricks[i].rect.y + BRICK_HEIGHT + ball.radius + 1;
             }
-            else {
+            else
+            {
                 ball.speed.y *= -1;
                 ball.pos.y = bricks[i].rect.y - ball.radius - 1;
             }
@@ -1149,16 +1202,17 @@ bool checkBallNBrickCollisions() {
 }
 
 // Degrade brick, based on its type
-void degradeBrick(int brickIndex) {
+void degradeBrick(int brickIndex)
+{
     // empty bricks and unbreakable bricks
     if (bricks[brickIndex].type == 0 || bricks[brickIndex].type == -1)
         return;
 
     // standard bricks
-    if (bricks[brickIndex].type > 0) {
+    if (bricks[brickIndex].type > 0)
+    {
         increaseScore(
-            BASE_BRICK_HIT_SCORE * (1 + (fabs(ball.speed.x) / fabs(ACCELERATED_BALL_SPEED.x) / 2))
-        );
+            BASE_BRICK_HIT_SCORE * (1 + (fabs(ball.speed.x) / fabs(ACCELERATED_BALL_SPEED.x) / 2)));
 
         // degrade brick
         bricks[brickIndex].type--;
@@ -1266,31 +1320,36 @@ bool checkBallNBrickCollisions2()
 }
 
 // Manage perk positions and durations
-void updatePerks() {
+void updatePerks()
+{
     const double dt = GetFrameTime();
     delayPerkSpawn();
 
     // durations
-    for (int i = 0; i < NUMBER_OF_PERKS; i++) {
+    for (int i = 0; i < NUMBER_OF_PERKS; i++)
+    {
         if (perks[i].duration == 0)
             continue;
 
         perks[i].duration -= dt;
-        if (perks[i].duration <= 0) {
+        if (perks[i].duration <= 0)
+        {
             deactivatePerk(i);
             perks[i].duration = 0;
         }
     }
 
     // positions
-    for (int i = 0; i < NUMBER_OF_PERKS; i++) {
+    for (int i = 0; i < NUMBER_OF_PERKS; i++)
+    {
         // despawn perk
         if (perks[i].pos.x <= 0 || perks[i].pos.x + PERK_IMG_SIZE.x >= GetScreenWidth() ||
             perks[i].pos.y <= 0 || perks[i].pos.y + PERK_IMG_SIZE.y >= GetScreenHeight())
         {
-            perks[i].pos = (Vector2) {-1, -1};
+            perks[i].pos = (Vector2){-1, -1};
         }
-        else {
+        else
+        {
             perks[i].pos = Vector2Add(perks[i].pos, Vector2Scale(PERK_SPEED, dt));
         }
 
@@ -1299,21 +1358,23 @@ void updatePerks() {
 }
 
 // Check collisions between perk and brick
-void checkPerkAndBrickCollision(int perkIndex) {
+void checkPerkAndBrickCollision(int perkIndex)
+{
     bool collision = CheckCollisionRecs(
-        (Rectangle) {perks[perkIndex].pos.x, perks[perkIndex].pos.y, PERK_IMG_SIZE.x, PERK_IMG_SIZE.y},
-        paddle.rect
-    );
+        (Rectangle){perks[perkIndex].pos.x, perks[perkIndex].pos.y, PERK_IMG_SIZE.x, PERK_IMG_SIZE.y},
+        paddle.rect);
 
-    if (collision) {
+    if (collision)
+    {
         // despawn and activate
-        perks[perkIndex].pos = (Vector2) {-1, -1};
+        perks[perkIndex].pos = (Vector2){-1, -1};
         activatePerk(perkIndex);
     }
 }
 
 // Activate effects of perk
-void activatePerk(int perkIndex) {
+void activatePerk(int perkIndex)
+{
     canSpawnPerk = false;
     if (perks[perkIndex].timed)
         perks[perkIndex].duration = TIMED_PERK_DURATION;
@@ -1353,55 +1414,63 @@ void activatePerk(int perkIndex) {
 }
 
 // Remove effects of perk
-void deactivatePerk(int perkIndex) {
+void deactivatePerk(int perkIndex)
+{
     perks[perkIndex].duration = 0;
 }
 
 // Manage delay for perk spawn
-void delayPerkSpawn() {
+void delayPerkSpawn()
+{
     static double time = 0;
     if (canSpawnPerk)
         return;
 
     time += GetFrameTime();
-    if (time > DELAY_AFTER_PERK_SPAWN) {
+    if (time > DELAY_AFTER_PERK_SPAWN)
+    {
         time = 0;
         canSpawnPerk = true;
     }
 }
 
 // Spawn perk after collision with brick
-void spawnPerk(int brickIndex) {
+void spawnPerk(int brickIndex)
+{
     if (!canSpawnPerk)
         return;
 
-    for (int i = 0; i < NUMBER_OF_PERKS; i++) {
+    for (int i = 0; i < NUMBER_OF_PERKS; i++)
+    {
         // perk already on screen => no spawn
-        if (!Vector2Equals(perks[i].pos, (Vector2) {-1, -1}))
+        if (!Vector2Equals(perks[i].pos, (Vector2){-1, -1}))
             continue;
 
         // limit on extra lives
-        if (i == 1 && lives >= STARTING_LIVES * 2) {
+        if (i == 1 && lives >= STARTING_LIVES * 2)
+        {
             continue;
         }
 
         // roll for rng
         double roll = ((double)rand() / RAND_MAX) * 100;
-        if (roll != 0 && roll <= perks[i].spawnChance) {
-            perks[i].pos = (Vector2) {
+        if (roll != 0 && roll <= perks[i].spawnChance)
+        {
+            perks[i].pos = (Vector2){
                 bricks[brickIndex].rect.x + (BRICK_WIDTH - PERK_IMG_SIZE.x) / 2,
-                bricks[brickIndex].rect.y
-            };
+                bricks[brickIndex].rect.y};
 
             return;
         }
     }
 }
 
-void resetPerks() {
-    for (int i = 0; i < NUMBER_OF_PERKS; i++) {
+void resetPerks()
+{
+    for (int i = 0; i < NUMBER_OF_PERKS; i++)
+    {
         perks[i].duration = 0;
-        perks[i].pos = (Vector2) {-1, -1};
+        perks[i].pos = (Vector2){-1, -1};
     }
 }
 
@@ -1483,9 +1552,11 @@ void manageGameEndUserInput()
 }
 
 // Read high scores from file
-void readHighScores() {
+void readHighScores()
+{
     FILE *hsFile = fopen(HIGH_SCORES_FILE_PATH, "r");
-    if (hsFile == NULL) {
+    if (hsFile == NULL)
+    {
         TraceLog(LOG_ERROR, "Leaderboards data has been lost.\n");
 
         // open empty file
@@ -1496,19 +1567,22 @@ void readHighScores() {
     }
 
     // read entries line by line
-    for (int i = 0; i < MAX_HIGH_SCORES; i++) {
+    for (int i = 0; i < MAX_HIGH_SCORES; i++)
+    {
         if (fscanf(hsFile, "%d %d", &highScores[i].score, &highScores[i].playtime) != 2)
             break;
 
         char c = '\0';
-        fscanf(hsFile, "%c", &c);   // read extra space
-        for (int j = 0; j < MAX_PLAYER_NAME_LENGTH && fscanf(hsFile, "%c", &c) == 1 && c != '\n'; j++) {
+        fscanf(hsFile, "%c", &c); // read extra space
+        for (int j = 0; j < MAX_PLAYER_NAME_LENGTH && fscanf(hsFile, "%c", &c) == 1 && c != '\n'; j++)
+        {
             highScores[i].name[j] = c;
             highScores[i].name[j + 1] = '\0';
         }
 
         // exhaust current line
-        while (c != '\n' && fscanf(hsFile, "%c", &c) == 1);
+        while (c != '\n' && fscanf(hsFile, "%c", &c) == 1)
+            ;
         numHighScores++;
     }
 
@@ -1523,9 +1597,12 @@ void readHighScores() {
 }
 
 // Sort high score entries based on score and playtime
-void sortHighScores() {
-    for (int i = 0; i < numHighScores; i++) {
-        for (int j = i + 1; j < numHighScores; j++) {
+void sortHighScores()
+{
+    for (int i = 0; i < numHighScores; i++)
+    {
+        for (int j = i + 1; j < numHighScores; j++)
+        {
             if (highScores[j].score > highScores[i].score ||
                 highScores[j].score == highScores[i].score && highScores[j].playtime < highScores[i].playtime)
             {
@@ -1538,12 +1615,13 @@ void sortHighScores() {
 }
 
 // Save score (called after entering name in end game screen)
-void saveNewScore() {
+void saveNewScore()
+{
     // find index to store
     int i = 0;
     while (i < numHighScores && (highScores[i].score > playerScore ||
-        (highScores[i].score == playerScore && highScores[i].playtime <= playtime))
-    ) {
+                                 (highScores[i].score == playerScore && highScores[i].playtime <= playtime)))
+    {
         i++;
     }
 
@@ -1552,7 +1630,8 @@ void saveNewScore() {
         return;
 
     // shift and replace
-    for (int j = MAX_HIGH_SCORES - 1; j > i; j--) {
+    for (int j = MAX_HIGH_SCORES - 1; j > i; j--)
+    {
         highScores[j] = highScores[j - 1];
     }
     highScores[i].score = playerScore;
@@ -1568,9 +1647,11 @@ void saveNewScore() {
 }
 
 // Write high scores list from memory to file
-void writeHighScores() {
+void writeHighScores()
+{
     FILE *hsFile = fopen(HIGH_SCORES_FILE_PATH, "w");
-    if (hsFile == NULL) {
+    if (hsFile == NULL)
+    {
         TraceLog(LOG_ERROR, "High scores file could not be opened.");
     }
 
@@ -1602,10 +1683,18 @@ double distancePointLine(Vector2 point, Vector2 lPoint1, Vector2 lPoint2)
 // Load all textures
 void loadSprites()
 {
-    //? (tbd) Loading Textures For Main Menu
     for (int i = MAIN_MENU_LOGO_START - 1; i < MAIN_MENU_LOGO_END; i++)
     {
         char mainMenuLogoTextureFilePath[50];
+        sprintf(mainMenuLogoTextureFilePath, "%slogo/%d.png", MAIN_MENU_TEXTURES_PATH, i + 1);
+        mainMenuLogo[i] = LoadTexture(mainMenuLogoTextureFilePath);
+    }
+
+    for (int i = MAIN_MENU_BALL_START - 1; i < MAIN_MENU_BALL_END; i++)
+    {
+        char mainMenuBallTextureFilePath[50];
+        sprintf(mainMenuBallTextureFilePath, "%sball/%d.png", MAIN_MENU_TEXTURES_PATH, i + 1);
+        mainMenuBall[i] = LoadTexture(mainMenuBallTextureFilePath);
     }
 
     // map editor buttons
@@ -1644,7 +1733,8 @@ void loadSprites()
     }
 
     // perks
-    for (int i = 0; i < NUMBER_OF_PERKS; i++) {
+    for (int i = 0; i < NUMBER_OF_PERKS; i++)
+    {
         char filename[50];
         sprintf(filename, "%s%s.png", PERKS_IMG_PATH, perks[i].filename);
         perks[i].img = LoadTexture(filename);
@@ -1671,6 +1761,15 @@ void unloadSprites()
 
     for (int i = 0; i < NUMBER_OF_PERKS; i++)
         UnloadTexture(perks[i].img);
+
+    for (int i = MAIN_MENU_LOGO_START - 1; i < MAIN_MENU_LOGO_END; i++)
+    {
+        UnloadTexture(mainMenuLogo[i]);
+    }
+    for (int i = MAIN_MENU_BALL_START - 1; i < MAIN_MENU_BALL_END; i++)
+    {
+        UnloadTexture(mainMenuBall[i]);
+    }
 }
 
 // Contains all draw calls; func called inside game loop
@@ -1692,13 +1791,15 @@ void drawLoop()
         drawMapEditor();
     }
     // high scores
-    else if (gameState == GS_HIGH_SCORES) {
+    else if (gameState == GS_HIGH_SCORES)
+    {
         drawHighScoresScreen();
     }
 }
 
 // Draw main game
-void drawMainGame() {
+void drawMainGame()
+{
     drawPaddle();
     drawBall();
     drawBricks();
@@ -1764,9 +1865,12 @@ void drawBricks()
     }
 }
 
-void drawPerks() {
-    for (int i = 0; i < NUMBER_OF_PERKS; i++) {
-        if (perks[i].pos.x != -1 && perks[i].pos.y != -1) {
+void drawPerks()
+{
+    for (int i = 0; i < NUMBER_OF_PERKS; i++)
+    {
+        if (perks[i].pos.x != -1 && perks[i].pos.y != -1)
+        {
             // DrawRectangle(perks[i].pos.x, perks[i].pos.y, 32, 30, WHITE);
             DrawTextureEx(perks[i].img, perks[i].pos, 0, 1, WHITE);
         }
@@ -1818,10 +1922,10 @@ void drawMapEditor()
             buttonColor = GRAY;
 
         // highlight buttons on hover
-        else if (CheckCollisionPointRec(GetMousePosition(), mapEditorButtons[i])) {
+        else if (CheckCollisionPointRec(GetMousePosition(), mapEditorButtons[i]))
+        {
             buttonColor = WHITE;
         }
-
 
         DrawRectangleLinesEx(mapEditorButtons[i], 1, WHITE);
 
@@ -1831,8 +1935,7 @@ void drawMapEditor()
             (Rectangle){mapEditorButtons[i].x + (mapEditorButtons[i].width - fontSize) / 2, mapEditorButtons[i].y + fontSize / 2, fontSize, fontSize},
             (Vector2){0, 0},
             0.0f,
-            buttonColor
-        );
+            buttonColor);
     }
 
     // color based on whether mouse points to corresponding brick
@@ -1849,13 +1952,11 @@ void drawMapEditor()
         // check if mouse is on ANY brick at all
         bool mouseOnBricks = CheckCollisionPointRec(
             mousePos,
-            (Rectangle) {
+            (Rectangle){
                 bricks[0].rect.x,
                 bricks[0].rect.y,
                 maxBrickCols * BRICK_WIDTH,
-                maxBrickRows * BRICK_HEIGHT
-            }
-        );
+                maxBrickRows * BRICK_HEIGHT});
 
         Color numColor;
         if (i < maxBrickCols)
@@ -1896,7 +1997,8 @@ void drawMapEditor()
 }
 
 // Draw leaderboards
-void drawHighScoresScreen()  {
+void drawHighScoresScreen()
+{
     // size and spacings for table
     const int fontSize = 16;
     const double rowHeight = 18 * 2;
@@ -1906,8 +2008,7 @@ void drawHighScoresScreen()  {
         "#",
         "Name",
         "Score",
-        "Time"
-    };
+        "Time"};
 
     // 60% of screen width
     const double tableWidth = 0.65 * GetScreenWidth();
@@ -1915,8 +2016,7 @@ void drawHighScoresScreen()  {
         0.10 * tableWidth,
         0.45 * tableWidth,
         0.25 * tableWidth,
-        0.20 * tableWidth
-    };
+        0.20 * tableWidth};
 
     // variables to keep track of position to draw stuff
     double px = (GetScreenWidth() - highScoresTitleImage.width) / 2;
@@ -1928,7 +2028,8 @@ void drawHighScoresScreen()  {
 
     // draw table headers
     px = (GetScreenWidth() - tableWidth) / 2;
-    for (int i = 0; i < NUM_HEADERS; i++) {
+    for (int i = 0; i < NUM_HEADERS; i++)
+    {
         // cell outline
         DrawRectangleLines(px, py, colWidth[i], rowHeight, RAYWHITE);
 
@@ -1941,28 +2042,35 @@ void drawHighScoresScreen()  {
     py += rowHeight;
 
     // draw cells and values inside them
-    for (int i = 0; i < MAX_HIGH_SCORES; i++) {
-        for (int j = 0; j < NUM_HEADERS; j++) {
+    for (int i = 0; i < MAX_HIGH_SCORES; i++)
+    {
+        for (int j = 0; j < NUM_HEADERS; j++)
+        {
             // cell outline
             DrawRectangleLines(px, py, colWidth[j], rowHeight, RAYWHITE);
 
             char cellText[50] = {'\0'};
 
-            if (j == 0) {       // #
+            if (j == 0)
+            { // #
                 sprintf(cellText, "%d", i + 1);
             }
-            else if (j == 1) {  // name
+            else if (j == 1)
+            { // name
                 sprintf(cellText, "%s", highScores[i].name);
             }
-            else if (j == 2) {  // score
+            else if (j == 2)
+            { // score
                 sprintf(cellText, "%d", highScores[i].score);
             }
-            else if (j == 3) {  // playtime
+            else if (j == 3)
+            { // playtime
                 sprintf(cellText, "%02d : %02d", highScores[i].playtime / 60, highScores[i].playtime % 60);
             }
 
             // empty cell
-            if (i >= numHighScores && j != 0) {
+            if (i >= numHighScores && j != 0)
+            {
                 sprintf(cellText, "-");
             }
 
@@ -1971,8 +2079,9 @@ void drawHighScoresScreen()  {
                 px + (colWidth[j] - MeasureText(cellText, fontSize + 2)) / 2,
                 py + (rowHeight - fontSize - 2) / 2,
                 fontSize + 2,
-                i == 0 ? (Color) {211, 175, 55, 255} : i == 1 ? (Color) {187, 194, 204, 255} : i == 2 ? (Color) {228, 149, 60, 255} : RAYWHITE
-            );
+                i == 0 ? (Color){211, 175, 55, 255} : i == 1 ? (Color){187, 194, 204, 255}
+                                                  : i == 2   ? (Color){228, 149, 60, 255}
+                                                             : RAYWHITE);
 
             px += colWidth[j];
         }
@@ -2116,7 +2225,8 @@ void updateAudio()
 // Switch to new music
 void switchMusic(int musicIndex)
 {
-    if (IsMusicValid(currMusic)) {
+    if (IsMusicValid(currMusic))
+    {
         StopMusicStream(currMusic);
         UnloadMusicStream(currMusic);
     }
@@ -2150,7 +2260,8 @@ void switchMusic(int musicIndex)
 void rotateMusic()
 {
     // Check whether music not playing and music not stopped earlier
-    if (!IsMusicStreamPlaying(currMusic) && !musicStopped) {
+    if (!IsMusicStreamPlaying(currMusic) && !musicStopped)
+    {
         // setting flag makes sure we dont switch multiple times before next music loads
         musicStopped = true;
         switchMusic(currMusicIndex + 1);
@@ -2167,11 +2278,11 @@ void unloadAudio()
 // Check user input for changing music
 void checkMusicChange()
 {
-    if (IsKeyDown(KEY_LEFT_SHIFT)){
+    if (IsKeyDown(KEY_LEFT_SHIFT))
+    {
         if (IsKeyPressed(KEY_APOSTROPHE))
             switchMusic(currMusicIndex + 1);
         else if (IsKeyPressed(KEY_SEMICOLON))
             switchMusic(currMusicIndex - 1);
     }
 }
-
