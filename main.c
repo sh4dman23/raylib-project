@@ -111,7 +111,7 @@ typedef struct Paddle
 {
     Rectangle rect;         // posx, posy, width, height
     Vector2 speed;          // paddle speed
-    Texture2D image;  // paddle texture
+    Texture2D image;        // paddle texture
 } Paddle;
 
 #define NUMBER_OF_PADDLES 3
@@ -146,7 +146,7 @@ typedef struct Perk
     double spawnChance;         // in %
     bool timed;
     Vector2 pos;
-    double duration;     // remaining duration
+    double duration;            // remaining duration
     Texture2D img;
 } Perk;
 
@@ -1659,8 +1659,7 @@ void readHighScores()
         }
 
         // exhaust current line
-        while (c != '\n' && fscanf(hsFile, "%c", &c) == 1)
-            ;
+        while (c != '\n' && fscanf(hsFile, "%c", &c) == 1);
         numHighScores++;
     }
 
@@ -1691,6 +1690,10 @@ void sortHighScores()
 // Save score (called after entering name in end game screen)
 void saveNewScore()
 {
+    // no need to save score with empty name
+    if (strlen(nameInputStr) == 0)
+        return;
+
     // find index to store
     int i = 0;
     while (i < numHighScores && (highScores[i].score > playerScore ||
