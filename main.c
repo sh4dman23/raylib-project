@@ -560,7 +560,6 @@ void createMainMenuButtons()
             break;
         }
         int textWidth = MeasureText(menuButtonText, buttonTextFontSize);
-        // DrawRectangleRec(mainMenuButtonRect, RED);
         DrawText(menuButtonText, mainMenuButtonRect.x + (mainMenuButtonRect.width - textWidth) / 2, mainMenuButtonRect.y + (mainMenuButtonRect.height - buttonTextFontSize) / 2, buttonTextFontSize, WHITE);
         mainMenuButtonRect.y += (10 + mainMenuButtonRect.height);
     }
