@@ -96,7 +96,7 @@ Ball ball;
 
 Texture2D ballImage;
 const Vector2 INITIAL_BALL_SPEED = (Vector2) {300, -350};       // base starting speed
-const Vector2 ACCELERATED_BALL_SPEED = (Vector2) {350, -350};   // speed after which the ball will start decelerating
+const Vector2 ACCELERATED_BALL_SPEED = (Vector2) {350, -400};   // speed after which the ball will start decelerating
 const Vector2 BALL_ACCELERATION = (Vector2) { 15, 15 };        // deceleration rate for ball
 // slow ball, fast ball speeds (to be implemented)
 
@@ -1073,27 +1073,35 @@ void manageBallAcceleration() {
     if (ballLockedToPaddle)
         return;
 
+    Vector2 oldSpeed = ball.speed;
+
     // acceleration on x
     if (fabs(ball.speed.x) < fabs(ACCELERATED_BALL_SPEED.x)) {
-        ball.speed.x = (ball.speed.x > 0 ? 1 : -1) * (fabs(ball.speed.x) + BALL_ACCELERATION.x * dt);
+        ball.speed.x = (ball.speed.x > 0 ? 1 : -1) * (fabs(ball.speed.x) + fabs(BALL_ACCELERATION.x) * dt);
         ball.speed.y = ball.speed.x * initialSpeed.y / initialSpeed.x;
+        if (fabs(ball.speed.y) > fabs(ACCELERATED_BALL_SPEED.y))
+            ball.speed = oldSpeed;
     }
 
     // acceleration on y
     if (fabs(ball.speed.y) < fabs(ACCELERATED_BALL_SPEED.y)) {
-        ball.speed.y = (ball.speed.y > 0 ? 1 : -1) * (fabs(ball.speed.y) + BALL_ACCELERATION.y * dt);
+        printf("accy\n");
+        ball.speed.y = (ball.speed.y > 0 ? 1 : -1) * (fabs(ball.speed.y) + fabs(BALL_ACCELERATION.y) * dt);
         ball.speed.x = ball.speed.y * initialSpeed.x / initialSpeed.y;
+        if (fabs(ball.speed.x) > fabs(ACCELERATED_BALL_SPEED.x))
+            ball.speed = oldSpeed;
     }
 
     // deceleration on x
     if (fabs(ball.speed.x) > fabs(ACCELERATED_BALL_SPEED.x)) {
-        ball.speed.x = (ball.speed.x > 0 ? 1 : -1) * (fabs(ball.speed.x) - BALL_ACCELERATION.x * dt);
+        ball.speed.x = (ball.speed.x > 0 ? 1 : -1) * (fabs(ball.speed.x) - fabs(BALL_ACCELERATION.x) * dt);
         ball.speed.y = ball.speed.x * initialSpeed.y / initialSpeed.x;
     }
 
     // deceleration on y
     if (fabs(ball.speed.y) > fabs(ACCELERATED_BALL_SPEED.y)) {
-        ball.speed.y = (ball.speed.y > 0 ? 1 : -1) * (fabs(ball.speed.y) - BALL_ACCELERATION.y * dt);
+        printf("decy\n");
+        ball.speed.y = (ball.speed.y > 0 ? 1 : -1) * (fabs(ball.speed.y) - fabs(BALL_ACCELERATION.y) * dt);
         ball.speed.x = ball.speed.y * initialSpeed.x / initialSpeed.y;
     }
 }
