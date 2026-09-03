@@ -87,7 +87,7 @@ Ball ball;
 Texture2D ballImage;
 const Vector2 INITIAL_BALL_SPEED = (Vector2) {300, -350};       // base starting speed
 const Vector2 ACCELERATED_BALL_SPEED = (Vector2) {350, -350};   // speed after which the ball will start decelerating
-const Vector2 BALL_DECELERATION = (Vector2) { 15, 15 };        // deceleration rate for ball
+const Vector2 BALL_ACCELERATION = (Vector2) { 15, 15 };        // deceleration rate for ball
 // slow ball, fast ball speeds (to be implemented)
 
 const double BASE_BALL_RADIUS = 5.0;
@@ -139,7 +139,7 @@ typedef struct Perk {
     Texture2D img;
 } Perk;
 
-#define NUMBER_OF_PERKS 6
+#define NUMBER_OF_PERKS 7
 Perk perks[NUMBER_OF_PERKS] = {
     // Kill Paddle
     (Perk) {
@@ -162,14 +162,6 @@ Perk perks[NUMBER_OF_PERKS] = {
         true,
     },
 
-    // Fast Ball
-    (Perk) {
-        "fastball",
-        // 8,
-        0,
-        false,
-    },
-
     // Expand Paddle
     (Perk) {
         "expandpaddle",
@@ -182,7 +174,22 @@ Perk perks[NUMBER_OF_PERKS] = {
         "shrinkpaddle",
         4,
         false,
-    }
+    },
+
+    // Slow Ball
+    (Perk) {
+        "slowball",
+        4,
+        false,
+    },
+
+    // Fast Ball
+    (Perk) {
+        "fastball",
+        8,
+        false,
+    },
+
 };
 
 //* Bricks
@@ -1019,11 +1026,34 @@ void updateBall()
 }
 
 void manageBallAcceleration() {
-    if (fabs(ball.speed.x) > fabs(ACCELERATED_BALL_SPEED.x)) {
-        const double dt = GetFrameTime();
-        const Vector2 initialSpeed = ball.speed;
-        ball.speed.x = (ball.speed.x > 0 ? 1 : -1) * (fabs(ball.speed.x) - BALL_DECELERATION.x * dt);
+    const Vector2 initialSpeed = ball.speed;
+    const double dt = GetFrameTime();
+
+    if (ballLockedToPaddle)
+        return;
+
+    // acceleration on x
+    if (fabs(ball.speed.x) < fabs(ACCELERATED_BALL_SPEED.x)) {
+        ball.speed.x = (ball.speed.x > 0 ? 1 : -1) * (fabs(ball.speed.x) + BALL_ACCELERATION.x * dt);
         ball.speed.y = ball.speed.x * initialSpeed.y / initialSpeed.x;
+    }
+
+    // acceleration on y
+    if (fabs(ball.speed.y) < fabs(ACCELERATED_BALL_SPEED.y)) {
+        ball.speed.y = (ball.speed.y > 0 ? 1 : -1) * (fabs(ball.speed.y) + BALL_ACCELERATION.y * dt);
+        ball.speed.x = ball.speed.y * initialSpeed.x / initialSpeed.y;
+    }
+
+    // deceleration on x
+    if (fabs(ball.speed.x) > fabs(ACCELERATED_BALL_SPEED.x)) {
+        ball.speed.x = (ball.speed.x > 0 ? 1 : -1) * (fabs(ball.speed.x) - BALL_ACCELERATION.x * dt);
+        ball.speed.y = ball.speed.x * initialSpeed.y / initialSpeed.x;
+    }
+
+    // deceleration on y
+    if (fabs(ball.speed.y) > fabs(ACCELERATED_BALL_SPEED.y)) {
+        ball.speed.y = (ball.speed.y > 0 ? 1 : -1) * (fabs(ball.speed.y) - BALL_ACCELERATION.y * dt);
+        ball.speed.x = ball.speed.y * initialSpeed.x / initialSpeed.y;
     }
 }
 
@@ -1349,34 +1379,30 @@ void activatePerk(int perkIndex) {
     increaseScore(BASE_PERK_ACTIVATE_SCORE);
     //? play sound
 
-    switch (perkIndex)
-    {
-    case 0: // Kill Paddle
+    char *name = perks[perkIndex].filename;
+    if (strcmp(name, "killpaddle") == 0) {
         killPaddle();
-        break;
-
-    case 1: // Extra life
+    }
+    else if (strcmp(name, "extralife") == 0) {
         increaseLives();
-        break;
-
-    case 2: // Double points
+    }
+    else if (strcmp(name, "doublepoints") == 0) {
         if (perks[2].duration <= 0)
             scoreMultiplier *= 2;
-        break;
-
-    case 3: //
-        break;
-
-    case 4: // Expand paddle
+    }
+    else if (strcmp(name, "expandpaddle") == 0) {
         switchPaddle(currentPaddle == SHRUNK_PADDLE ? BASE_PADDLE : EXPANDED_PADDLE);
-        break;
-
-    case 5: // Shrink paddle
+    }
+    else if (strcmp(name, "shrinkpaddle") == 0) {
         switchPaddle(currentPaddle == EXPANDED_PADDLE ? BASE_PADDLE : SHRUNK_PADDLE);
-        break;
-
-    default:
-        break;
+    }
+    else if (strcmp(name, "slowball") == 0) {
+        double slowSpeed = min(Vector2Length(INITIAL_BALL_SPEED) / 2, Vector2Length(ball.speed));
+        ball.speed = Vector2Scale(Vector2Normalize(ball.speed), slowSpeed);
+    }
+    else if (strcmp(name, "fastball") == 0) {
+        double fastSpeed = max(Vector2Length(ACCELERATED_BALL_SPEED) * 1.2, Vector2Length(ball.speed));
+        ball.speed = Vector2Scale(Vector2Normalize(ball.speed), fastSpeed);
     }
 
     // set duration to max initial duration
@@ -1388,31 +1414,12 @@ void activatePerk(int perkIndex) {
 void deactivatePerk(int perkIndex) {
     perks[perkIndex].duration = 0;
 
-    switch (perkIndex)
-    {
-    case 0: // Kill Paddle
-        break;
-
-    case 1: // Extra life
-        break;
-
-    case 2: // Double points
+    char *name = perks[perkIndex].filename;
+    if (strcmp(name, "doublepoints") == 0) {
         scoreMultiplier /= 2;
-        break;
-
-    case 3: // Fast ball
-        break;
-
-    case 4: // Expand paddle
-    case 5: // Shrink paddle
+    }
+    else if (strcmp(name, "expandpaddle") == 0 || strcmp(name, "shrinkpaddle") == 0) {
         switchPaddle(BASE_PADDLE);
-        break;
-
-    case 6: //
-        break;
-
-    default:
-        break;
     }
 }
 
@@ -1439,15 +1446,15 @@ void spawnPerk(int brickIndex) {
         if (!Vector2Equals(perks[i].pos, (Vector2) {-1, -1}))
             continue;
 
-        // limit on extra lives
-        if (i == 1 && lives >= STARTING_LIVES * 2) {
+        char *name = perks[i].filename;
+
+        // limits on specific perks to spawn
+        if (strcmp(name, "killpaddle") == 0 && lives >= STARTING_LIVES * 2) {
             continue;
         }
-
-        // expand & shrink paddle
-        if (i == 4 && currentPaddle == EXPANDED_PADDLE)
+        else if (strcmp(name, "expandpaddle") == 0 && currentPaddle == EXPANDED_PADDLE)
             continue;
-        else if (i == 5 && currentPaddle == SHRUNK_PADDLE)
+        else if (strcmp(name, "shrinkpaddle") == 0 && currentPaddle == SHRUNK_PADDLE)
             continue;
 
         // roll for rng
