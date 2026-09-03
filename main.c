@@ -505,6 +505,11 @@ void switchGameState(int state)
         setNewGame();
     }
 
+    // main menu -> main game
+    if (gameState == GS_MAIN_MENU && state == GS_MAIN_GAME) {
+        setNewGame();
+    }
+
     // end game -> any other mode (only main menu accessible)
     if (gameState == GS_GAME_END)
     {
@@ -628,8 +633,8 @@ void setNewGame()
 
     initializeCurrentMap();
 
-    resetPaddle();
     resetBall();
+    resetPaddle();
     resetPerks();
 
     resetStats();
@@ -955,8 +960,8 @@ void checkMapEdit()
 void resetBall()
 {
     lockBall();
-    ball.pos = (Vector2){paddles[currentPaddle].rect.x + paddles[currentPaddle].rect.width / 2, paddles[currentPaddle].rect.y - ball.radius};
-    ball.speed = INITIAL_BALL_SPEED;
+    ball.pos = (Vector2){paddles[currentPaddle].rect.x + paddles[currentPaddle].rect.width / 2, paddles[currentPaddle].rect.y - ball.radius - 1};
+    ball.speed = (Vector2) {fabs(INITIAL_BALL_SPEED.x), -fabs(INITIAL_BALL_SPEED.y)};
     ball.radius = BASE_BALL_RADIUS;
 }
 
@@ -1159,10 +1164,10 @@ bool bounceBallOnPaddle()
 
     // 4 pixels of extra length on both sides to allow for fairer jump
     if (ball.pos.x >= paddles[currentPaddle].rect.x - 4 && ball.pos.x <= paddles[currentPaddle].rect.x + paddles[currentPaddle].rect.width + 4 &&
-        ball.pos.y + ball.radius >= paddles[currentPaddle].rect.y)
+        ball.pos.y + ball.radius > paddles[currentPaddle].rect.y)
     {
         ball.speed.y *= -1;
-        ball.pos.y = paddles[currentPaddle].rect.y - ball.radius;
+        ball.pos.y = paddles[currentPaddle].rect.y - ball.radius - 1;
         collision = true;
     }
     else if (CheckCollisionCircleRec(ball.pos, ball.radius, (Rectangle){paddles[currentPaddle].rect.x - 4, paddles[currentPaddle].rect.y, paddles[currentPaddle].rect.width + 8, paddles[currentPaddle].rect.height}))
@@ -1178,17 +1183,17 @@ bool bounceBallOnPaddle()
 void updatePaddle()
 {
     // unlock ball from paddle
-    if (IsKeyDown(KEY_SPACE))
+    if (ballLockedToPaddle && IsKeyPressed(KEY_SPACE))
         ballLockedToPaddle = false;
+
+    // check collisions with ball since its fast moving
+    bounceBallOnPaddle();
 
     // move paddle sideways
     if (IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_A))
         paddles[currentPaddle].rect.x -= paddles[currentPaddle].speed.x;
     else if (IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D))
         paddles[currentPaddle].rect.x += paddles[currentPaddle].speed.x;
-
-    // check collisions with ball since its fast moving
-    bounceBallOnPaddle();
 
     // bound within the walls
     if (paddles[currentPaddle].rect.x < 0)
@@ -2264,7 +2269,7 @@ void drawDebugView()
 
     // outlines
     DrawCircleLinesV(ball.pos, ball.radius, RED);
-    DrawRectangleLinesEx((Rectangle){paddles[currentPaddle].rect.x - 4, paddles[currentPaddle].rect.y - 2, paddles[currentPaddle].rect.width + 8, paddles[currentPaddle].rect.height + 4}, 1, RED);
+    DrawRectangleLinesEx((Rectangle){paddles[currentPaddle].rect.x - 4, paddles[currentPaddle].rect.y, paddles[currentPaddle].rect.width + 8, paddles[currentPaddle].rect.height}, 1, RED);
 
     // stats
     char textStr[50] = {'\0'};
