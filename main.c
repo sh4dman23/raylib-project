@@ -1387,7 +1387,7 @@ void activatePerk(int perkIndex) {
         increaseLives();
     }
     else if (strcmp(name, "doublepoints") == 0) {
-        if (perks[2].duration <= 0)
+        if (perks[perkIndex].duration <= 0)
             scoreMultiplier *= 2;
     }
     else if (strcmp(name, "expandpaddle") == 0) {
