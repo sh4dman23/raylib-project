@@ -2254,25 +2254,21 @@ void drawDebugView()
     DrawRectangleLinesEx((Rectangle){paddles[currentPaddle].rect.x - 4, paddles[currentPaddle].rect.y - 2, paddles[currentPaddle].rect.width + 8, paddles[currentPaddle].rect.height + 4}, 1, RED);
 
     // stats
-    char fpsText[20] = {'\0'};
-    sprintf(fpsText, "FPS: %d", GetFPS());
-    DrawText(fpsText, 10, 10, 15, RAYWHITE);
+    char textStr[50] = {'\0'};
+    sprintf(textStr, "FPS: %d", GetFPS());
+    DrawText(textStr, 10, 10, 15, RAYWHITE);
 
-    char scoreText[20] = {'\0'};
-    sprintf(scoreText, "Score: %d", playerScore);
-    DrawText(scoreText, 10, 30, 15, RAYWHITE);
+    sprintf(textStr, "Score: %d", playerScore);
+    DrawText(textStr, 10, 30, 15, RAYWHITE);
 
-    char playTimeText[20] = {'\0'};
-    sprintf(playTimeText, "PlayTime: %d", playtime);
-    DrawText(playTimeText, 10, 50, 15, RAYWHITE);
+    sprintf(textStr, "PlayTime: %d", playtime);
+    DrawText(textStr, 10, 50, 15, RAYWHITE);
 
-    char livesText[20] = {'\0'};
-    sprintf(livesText, "Lives: %d", lives);
-    DrawText(livesText, 10, 70, 15, RAYWHITE);
+    sprintf(textStr, "Lives: %d", lives);
+    DrawText(textStr, 10, 70, 15, RAYWHITE);
 
-    char ballSpeedText[50] = {'\0'};
-    sprintf(ballSpeedText, "SpeedX: %.2f; SpeedY: %.2f", ball.speed.x, ball.speed.y);
-    DrawText(ballSpeedText, GetScreenWidth() - 250, 10, 15, RAYWHITE);
+    sprintf(textStr, "SpeedX: %.2f; SpeedY: %.2f", ball.speed.x, ball.speed.y);
+    DrawText(textStr, GetScreenWidth() - 250, 10, 15, RAYWHITE);
 
     // map area
     DrawRectangle(PADDING_ON_MAP_SIDES, PADDING_ABOVE_MAP, GetScreenWidth() - PADDING_ON_MAP_SIDES * 2, GetScreenHeight() - PADDING_ABOVE_MAP - PADDING_BELOW_MAP, (Color){255, 0, 0, 50});
