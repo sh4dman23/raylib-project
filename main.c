@@ -173,16 +173,14 @@ Perk perks[NUMBER_OF_PERKS] = {
     // Expand Paddle
     (Perk) {
         "expandpaddle",
-        // 4,
-        0,
+        4,
         false,
     },
 
     // Shrink Paddle
     (Perk) {
         "shrinkpaddle",
-        // 4,
-        0,
+        4,
         false,
     }
 };
@@ -921,15 +919,15 @@ void switchPaddle(int type)
         return;
 
     Rectangle oldRec = paddles[currentPaddle].rect;
+    currentPaddle = type;
+
     paddles[type].rect = (Rectangle) {
-        oldRec.x + oldRec.width - paddles[type].image.width,
-        oldRec.y + oldRec.height - paddles[type].image.height,
+        oldRec.x + (oldRec.width - paddles[type].image.width) / 2,
+        oldRec.y + (oldRec.height - paddles[type].image.height) / 2,
         paddles[type].image.width,
         paddles[type].image.height
     };
     paddles[type].speed = PADDLE_SPEED;
-
-    currentPaddle = type;
 }
 
 // Reset paddle to starting position and base type
@@ -1369,13 +1367,12 @@ void activatePerk(int perkIndex) {
     case 3: //
         break;
 
-    case 4: //
+    case 4: // Expand paddle
+        switchPaddle(currentPaddle == SHRUNK_PADDLE ? BASE_PADDLE : EXPANDED_PADDLE);
         break;
 
-    case 5: //
-        break;
-
-    case 6: //
+    case 5: // Shrink paddle
+        switchPaddle(currentPaddle == EXPANDED_PADDLE ? BASE_PADDLE : SHRUNK_PADDLE);
         break;
 
     default:
@@ -1403,13 +1400,12 @@ void deactivatePerk(int perkIndex) {
         scoreMultiplier /= 2;
         break;
 
-    case 3: //
+    case 3: // Fast ball
         break;
 
-    case 4: //
-        break;
-
-    case 5: //
+    case 4: // Expand paddle
+    case 5: // Shrink paddle
+        switchPaddle(BASE_PADDLE);
         break;
 
     case 6: //
@@ -1448,8 +1444,14 @@ void spawnPerk(int brickIndex) {
             continue;
         }
 
+        // expand & shrink paddle
+        if (i == 4 && currentPaddle == EXPANDED_PADDLE)
+            continue;
+        else if (i == 5 && currentPaddle == SHRUNK_PADDLE)
+            continue;
+
         // roll for rng
-        double roll = ((double)rand() / RAND_MAX) * 100;
+        double roll = ((double) rand() / RAND_MAX) * 100;
         if (roll != 0 && roll <= perks[i].spawnChance) {
             perks[i].pos = (Vector2) {
                 bricks[brickIndex].rect.x + (BRICK_WIDTH - PERK_IMG_SIZE.x) / 2,
@@ -1472,7 +1474,9 @@ void resetPerks() {
 void increaseScore(int change)
 {
     // score based on speed
-    int increase = change * scoreMultiplier;
+    // 50% more score for smaller paddle
+    int increase = change + 0.5 * change * (currentPaddle == SHRUNK_PADDLE);
+    increase *= scoreMultiplier;
 
     playerScore += increase;
 }
