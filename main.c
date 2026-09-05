@@ -2300,7 +2300,7 @@ void drawDebugView()
     DrawText(textStr, GetScreenWidth() - 250, 10, 15, RAYWHITE);
 
     // map area
-    DrawRectangle(PADDING_ON_MAP_SIDES, PADDING_ABOVE_MAP, GetScreenWidth() - PADDING_ON_MAP_SIDES * 2, GetScreenHeight() - PADDING_ABOVE_MAP - PADDING_BELOW_MAP, (Color){255, 0, 0, 50});
+    // DrawRectangle(PADDING_ON_MAP_SIDES, PADDING_ABOVE_MAP, GetScreenWidth() - PADDING_ON_MAP_SIDES * 2, GetScreenHeight() - PADDING_ABOVE_MAP - PADDING_BELOW_MAP, (Color){255, 0, 0, 50});
 
     // brick outlines
     for (int i = 0; i < numBricks; i++)
