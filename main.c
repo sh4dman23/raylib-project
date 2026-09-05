@@ -517,6 +517,9 @@ void switchGameState(int state)
     // map editor -> any other mode
     if (gameState == GS_MAP_EDITOR)
     {
+        // save changes
+        saveCurrentMap();
+
         // switch to first map
         switchToMap(0);
     }
@@ -918,15 +921,17 @@ void checkMapEdit()
     // interaction with map editor buttons
     if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
     {
-        // circle left
+        // cycle maps left
         if (CheckCollisionPointRec(mousePos, mapEditorButtons[1]))
         {
+            saveCurrentMap();
             switchToMap(currentMap - 1);
         }
 
-        // circle right
+        // cycle maps right
         else if (CheckCollisionPointRec(mousePos, mapEditorButtons[2]))
         {
+            saveCurrentMap();
             switchToMap(currentMap + 1);
         }
 
@@ -946,10 +951,12 @@ void checkMapEdit()
     // arrow keys to change map
     if (IsKeyPressed(KEY_LEFT))
     {
+        saveCurrentMap();
         switchToMap(currentMap - 1);
     }
     else if (IsKeyPressed(KEY_RIGHT))
     {
+        saveCurrentMap();
         switchToMap(currentMap + 1);
     }
 }
@@ -2101,7 +2108,8 @@ void drawHighScoresScreen()
         "#",
         "Name",
         "Score",
-        "Time"};
+        "Time"
+    };
 
     // 60% of screen width
     const double tableWidth = 0.65 * GetScreenWidth();
