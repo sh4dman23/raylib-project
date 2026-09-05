@@ -524,6 +524,12 @@ void switchGameState(int state)
         switchToMap(0);
     }
 
+    // hide cursor for main game
+    if (state == GS_MAIN_GAME)
+        HideCursor();
+    else
+        ShowCursor();
+
     gameState = state;
 }
 
@@ -594,6 +600,7 @@ void checkMainMenuButtonClick(Vector2 mousePos)
 
     if (insideRectX_Axis && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && (mousePos.y >= y && mousePos.y <= y + MAIN_MENU_BUTTON_HEIGHT))
     {
+        justMouseClicked = true;
         switchGameState(GS_MAIN_GAME);
     }
     else if (insideRectX_Axis && IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && (mousePos.y >= y + MAIN_MENU_BUTTON_HEIGHT * 1 + 10 * 1 && mousePos.y <= y + MAIN_MENU_BUTTON_HEIGHT * 2 + 10 * 1))
@@ -1004,6 +1011,9 @@ void resetPaddle()
         paddles[currentPaddle].image.height
     };
 
+    // reset mouse position
+    SetMousePosition(paddles[currentPaddle].rect.x + paddles[currentPaddle].rect.width / 2, WINDOW_HEIGHT / 2);
+
     paddles[currentPaddle].speed = PADDLE_SPEED;
 }
 
@@ -1191,20 +1201,38 @@ bool bounceBallOnPaddle()
 // Update paddle position based on player input
 void updatePaddle()
 {
+    // required for controlling paddle by mouse
+    static Vector2 prevMouse = (Vector2) {WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2};
+
     // unlock ball from paddle
-    if (ballLockedToPaddle && IsKeyPressed(KEY_SPACE))
-        ballLockedToPaddle = false;
+    if (ballLockedToPaddle && (IsKeyPressed(KEY_SPACE) || IsMouseButtonPressed(MOUSE_BUTTON_LEFT))) {
+        if (justMouseClicked) {
+            prevMouse = GetMousePosition();
+            justMouseClicked = false;
+        }
+        else
+            ballLockedToPaddle = false;
+    }
 
     // check collisions with ball since its fast moving
     bounceBallOnPaddle();
 
     const double dt = GetFrameTime();
 
-    // move paddle sideways
-    if (IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_A))
+    // move paddle (AS WELL AS THE MOUSE CURSOR) sideways
+    if (IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_A)) {
         paddles[currentPaddle].rect.x -= paddles[currentPaddle].speed.x * dt;
-    else if (IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D))
+        SetMousePosition(paddles[currentPaddle].rect.x + paddles[currentPaddle].rect.width / 2, prevMouse.y);
+    }
+    else if (IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D)) {
         paddles[currentPaddle].rect.x += paddles[currentPaddle].speed.x * dt;
+        SetMousePosition(paddles[currentPaddle].rect.x + paddles[currentPaddle].rect.width / 2, prevMouse.y);
+    }
+    // mouse in window and mouse moved
+    else if (IsWindowFocused() && CheckCollisionPointRec(GetMousePosition(), (Rectangle) {0, 0, GetScreenWidth(), GetScreenHeight()}) && GetMousePosition().x != prevMouse.x) {
+        prevMouse = GetMousePosition();
+        paddles[currentPaddle].rect.x = prevMouse.x - paddles[currentPaddle].rect.width / 2;
+    }
 
     // bound within the walls
     if (paddles[currentPaddle].rect.x < 0)
